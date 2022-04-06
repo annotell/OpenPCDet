@@ -1,4 +1,4 @@
-FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
+FROM nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04
 
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 
@@ -6,7 +6,7 @@ RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selectio
 RUN apt-get update -y \
     && apt-get install build-essential \
     && apt-get install -y apt-utils git curl ca-certificates bzip2 tree htop wget \
-    && apt-get install -y libglib2.0-0 libsm6 libxext6 libxrender-dev bmon iotop g++ python3.7 python3.7-dev python3.7-distutils
+    && apt-get install -y libglib2.0-0 libsm6 libxext6 libxrender-dev bmon iotop g++ python3.8 python3.8-dev python3.8-distutils
 
 # Install cmake v3.13.2
 RUN apt-get purge -y cmake && \
@@ -22,18 +22,18 @@ RUN apt-get purge -y cmake && \
     rm -rf /root/temp
 
 # Install python
-RUN ln -sv /usr/bin/python3.7 /usr/bin/python
+RUN ln -sv /usr/bin/python3.8 /usr/bin/python
 RUN wget https://bootstrap.pypa.io/get-pip.py && \
 	python get-pip.py && \
 	rm get-pip.py
 
 # Install python packages
 RUN PIP_INSTALL="python -m pip --no-cache-dir install" && \
-    $PIP_INSTALL numpy==1.19.3 llvmlite numba 
+    $PIP_INSTALL numpy==1.20 llvmlite numba
 
 # Install torch and torchvision
 # See https://pytorch.org/ for other options if you use a different version of CUDA
-RUN pip install --user torch==1.6 torchvision==0.7.0 -f https://download.pytorch.org/whl/cu102/torch_stable.html
+RUN pip install --user torch==1.10.0+cu113 torchvision==0.11.1+cu113 torchaudio==0.10.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
 
 # Install python packages
 RUN PIP_INSTALL="python -m pip --no-cache-dir install" && \
@@ -52,4 +52,10 @@ RUN wget https://jaist.dl.sourceforge.net/project/boost/boost/1.68.0/boost_1_68_
 RUN pip uninstall -y SharedArray && \
     pip install SharedArray
 
-RUN pip install spconv-cu102
+RUN pip install spconv-cu114
+
+RUN git clone git@github.com:annotell/OpenPCDet.git
+
+WORKDIR /root/OpenPCDet
+
+RUN python setup.py develop
