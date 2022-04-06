@@ -1,5 +1,5 @@
 DATASET: 'CosmosDataset'
-DATA_PATH: '../data/cosmos/'
+DATA_PATH: '/data/'
 
 GET_ITEM_LIST: [ "points" ]
 FOV_POINTS_ONLY: True

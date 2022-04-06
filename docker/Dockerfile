@@ -53,9 +53,3 @@ RUN pip uninstall -y SharedArray && \
     pip install SharedArray
 
 RUN pip install spconv-cu114
-
-RUN git clone git@github.com:annotell/OpenPCDet.git
-
-WORKDIR /root/OpenPCDet
-
-RUN python setup.py develop
