@@ -53,8 +53,12 @@ def eval_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sa
     start_time = time.time()
     for i, batch_dict in enumerate(dataloader):
         load_data_to_gpu(batch_dict)
-        with torch.no_grad():
-            pred_dicts, ret_dict = model(batch_dict)
+        try:
+            with torch.no_grad():
+                pred_dicts, ret_dict = model(batch_dict)
+        except:
+            print(i)
+            continue
         disp_dict = {}
 
         statistics_info(cfg, ret_dict, metric, disp_dict)
@@ -108,10 +112,7 @@ def eval_one_epoch(cfg, model, dataloader, epoch_id, logger, dist_test=False, sa
         pickle.dump(det_annos, f)
 
     result_str, result_dict = dataset.evaluation(
-        det_annos, class_names,
-        eval_metric=cfg.MODEL.POST_PROCESSING.EVAL_METRIC,
-        output_path=final_output_dir
-    )
+        det_annos, class_names)
 
     logger.info(result_str)
     ret_dict.update(result_dict)

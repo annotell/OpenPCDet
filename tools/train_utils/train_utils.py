@@ -9,7 +9,8 @@ from pcdet.utils import common_utils, commu_utils
 
 
 def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, accumulated_iter, optim_cfg,
-                    rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, leave_pbar=False):
+                    rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, leave_pbar=False,
+                    ckpt_save_dir=None, cur_epoch=0):
     if total_it_each_epoch == len(train_loader):
         dataloader_iter = iter(train_loader)
 
@@ -27,7 +28,7 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
             dataloader_iter = iter(train_loader)
             batch = next(dataloader_iter)
             print('new iters')
-        
+
         data_timer = time.time()
         cur_data_time = data_timer - end
 
@@ -43,8 +44,14 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
 
         model.train()
         optimizer.zero_grad()
-
-        loss, tb_dict, disp_dict = model_func(model, batch)
+        try:
+            loss, tb_dict, disp_dict = model_func(model, batch)
+        except:
+            for i in range(len(batch['frame_id'])):
+                curr_frame = batch['frame_id'][i]
+                print('HERE WE ARE')
+                print(train_loader.dataset.annotations[curr_frame][0])
+            continue
 
         forward_timer = time.time()
         cur_forward_time = forward_timer - data_timer
@@ -68,7 +75,8 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
             batch_time.update(avg_batch_time)
             disp_dict.update({
                 'loss': loss.item(), 'lr': cur_lr, 'd_time': f'{data_time.val:.2f}({data_time.avg:.2f})',
-                'f_time': f'{forward_time.val:.2f}({forward_time.avg:.2f})', 'b_time': f'{batch_time.val:.2f}({batch_time.avg:.2f})'
+                'f_time': f'{forward_time.val:.2f}({forward_time.avg:.2f})',
+                'b_time': f'{batch_time.val:.2f}({batch_time.avg:.2f})'
             })
 
             pbar.update()
@@ -81,6 +89,12 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
                 tb_log.add_scalar('meta_data/learning_rate', cur_lr, accumulated_iter)
                 for key, val in tb_dict.items():
                     tb_log.add_scalar('train/' + key, val, accumulated_iter)
+
+        if cur_it % 1000 == 0 and rank == 0:
+            ckpt_name = ckpt_save_dir / 'checkpoint_epoch_temp'
+            save_checkpoint(
+                checkpoint_state(model, optimizer, cur_epoch, accumulated_iter), filename=ckpt_name,
+            )
     if rank == 0:
         pbar.close()
     return accumulated_iter
@@ -115,7 +129,9 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
                 rank=rank, tbar=tbar, tb_log=tb_log,
                 leave_pbar=(cur_epoch + 1 == total_epochs),
                 total_it_each_epoch=total_it_each_epoch,
-                dataloader_iter=dataloader_iter
+                dataloader_iter=dataloader_iter,
+                ckpt_save_dir=ckpt_save_dir,
+                cur_epoch=cur_epoch
             )
 
             # save trained model

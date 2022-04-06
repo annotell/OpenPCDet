@@ -9,6 +9,7 @@ from .kitti.kitti_dataset import KittiDataset
 from .nuscenes.nuscenes_dataset import NuScenesDataset
 from .waymo.waymo_dataset import WaymoDataset
 from .pandaset.pandaset_dataset import PandasetDataset
+from .cosmos.cosmos_dataset import CosmosDataset
 from .lyft.lyft_dataset import LyftDataset
 
 __all__ = {
@@ -17,6 +18,7 @@ __all__ = {
     'NuScenesDataset': NuScenesDataset,
     'WaymoDataset': WaymoDataset,
     'PandasetDataset': PandasetDataset,
+    'CosmosDataset': CosmosDataset,
     'LyftDataset': LyftDataset
 }
 
@@ -46,7 +48,6 @@ class DistributedSampler(_DistributedSampler):
 
 def build_dataloader(dataset_cfg, class_names, batch_size, dist, root_path=None, workers=4,
                      logger=None, training=True, merge_all_iters_to_one_epoch=False, total_epochs=0):
-
     dataset = __all__[dataset_cfg.DATASET](
         dataset_cfg=dataset_cfg,
         class_names=class_names,
