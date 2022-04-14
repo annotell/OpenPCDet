@@ -46,10 +46,18 @@ RUN wget https://jaist.dl.sourceforge.net/project/boost/boost/1.68.0/boost_1_68_
     tar xzvf boost_1_68_0.tar.gz && \
     cp -r ./boost_1_68_0/boost /usr/include && \
     rm -rf ./boost_1_68_0 && \
-    rm -rf ./boost_1_68_0.tar.gz 
+    rm -rf ./boost_1_68_0.tar.gz
 
 # A weired problem that hasn't been solved yet
 RUN pip uninstall -y SharedArray && \
     pip install SharedArray
 
 RUN pip install spconv-cu114
+
+COPY OpenPCDet /root/OpenPCDet
+
+WORKDIR /root/OpenPCDet
+
+RUN python setup.py develop
+
+
