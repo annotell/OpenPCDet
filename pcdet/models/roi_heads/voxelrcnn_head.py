@@ -27,11 +27,10 @@ class VoxelRCNNHead(RoIHeadTemplate):
                 mlps=mlps,
                 pool_method=LAYER_cfg[src_name].POOL_METHOD,
             )
-            
+
             self.roi_grid_pool_layers.append(pool_layer)
 
             c_out += sum([x[-1] for x in mlps])
-
 
         GRID_SIZE = self.model_cfg.ROI_GRID_POOL.GRID_SIZE
         # c_out = sum([x[-1] for x in mlps])
@@ -88,7 +87,7 @@ class VoxelRCNNHead(RoIHeadTemplate):
                     init_func(m.weight)
                     if m.bias is not None:
                         nn.init.constant_(m.bias, 0)
-                    
+
         nn.init.normal_(self.cls_pred_layer.weight, 0, 0.01)
         nn.init.constant_(self.cls_pred_layer.bias, 0)
         nn.init.normal_(self.reg_pred_layer.weight, mean=0, std=0.001)
@@ -102,7 +101,7 @@ class VoxelRCNNHead(RoIHeadTemplate):
     #             if m.bias is not None:
     #                 nn.init.constant_(m.bias, 0)
     #     nn.init.normal_(self.reg_layers[-1].weight, mean=0, std=0.001)
-    
+
     def roi_grid_pool(self, batch_dict):
         """
         Args:
@@ -119,17 +118,20 @@ class VoxelRCNNHead(RoIHeadTemplate):
         rois = batch_dict['rois']
         batch_size = batch_dict['batch_size']
         with_vf_transform = batch_dict.get('with_voxel_feature_transform', False)
-        
+
         roi_grid_xyz, _ = self.get_global_grid_points_of_roi(
             rois, grid_size=self.pool_cfg.GRID_SIZE
         )  # (BxN, 6x6x6, 3)
         # roi_grid_xyz: (B, Nx6x6x6, 3)
-        roi_grid_xyz = roi_grid_xyz.view(batch_size, -1, 3)  
+        roi_grid_xyz = roi_grid_xyz.view(batch_size, -1, 3)
 
         # compute the voxel coordinates of grid points
-        roi_grid_coords_x = (roi_grid_xyz[:, :, 0:1] - self.point_cloud_range[0]) // self.voxel_size[0]
-        roi_grid_coords_y = (roi_grid_xyz[:, :, 1:2] - self.point_cloud_range[1]) // self.voxel_size[1]
-        roi_grid_coords_z = (roi_grid_xyz[:, :, 2:3] - self.point_cloud_range[2]) // self.voxel_size[2]
+        roi_grid_coords_x = torch.div(roi_grid_xyz[:, :, 0:1] - self.point_cloud_range[0], self.voxel_size[0],
+                                      rounding_mode='trunc')
+        roi_grid_coords_y = torch.div(roi_grid_xyz[:, :, 1:2] - self.point_cloud_range[1], self.voxel_size[1],
+                                      rounding_mode='trunc')
+        roi_grid_coords_z = torch.div(roi_grid_xyz[:, :, 2:3] - self.point_cloud_range[2], self.voxel_size[2],
+                                      rounding_mode='trunc')
         # roi_grid_coords: (B, Nx6x6x6, 3)
         roi_grid_coords = torch.cat([roi_grid_coords_x, roi_grid_coords_y, roi_grid_coords_z], dim=-1)
 
@@ -166,7 +168,7 @@ class VoxelRCNNHead(RoIHeadTemplate):
             # get voxel2point tensor
             v2p_ind_tensor = common_utils.generate_voxel2pinds(cur_sp_tensors)
             # compute the grid coordinates in this scale, in [batch_idx, x y z] order
-            cur_roi_grid_coords = roi_grid_coords // cur_stride
+            cur_roi_grid_coords = torch.div(roi_grid_coords, cur_stride, rounding_mode='trunc')
             cur_roi_grid_coords = torch.cat([batch_idx, cur_roi_grid_coords], dim=-1)
             cur_roi_grid_coords = cur_roi_grid_coords.int()
             # voxel neighbor aggregation
@@ -185,11 +187,10 @@ class VoxelRCNNHead(RoIHeadTemplate):
                 pooled_features.shape[-1]
             )  # (BxN, 6x6x6, C)
             pooled_features_list.append(pooled_features)
-        
-        ms_pooled_features = torch.cat(pooled_features_list, dim=-1)
-        
-        return ms_pooled_features
 
+        ms_pooled_features = torch.cat(pooled_features_list, dim=-1)
+
+        return ms_pooled_features
 
     def get_global_grid_points_of_roi(self, rois, grid_size):
         rois = rois.view(-1, rois.shape[-1])

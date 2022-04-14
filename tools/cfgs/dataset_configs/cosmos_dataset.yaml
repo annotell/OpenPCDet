@@ -1,5 +1,5 @@
 DATASET: 'CosmosDataset'
-DATA_PATH: '/data/'
+DATA_PATH: '/mnt/bfd/luca/cosmos_data_3dod/'
 
 GET_ITEM_LIST: [ "points" ]
 FOV_POINTS_ONLY: True
@@ -42,6 +42,6 @@ DATA_PROCESSOR:
     VOXEL_SIZE: [ 0.05, 0.05, 0.1 ]
     MAX_POINTS_PER_VOXEL: 5
     MAX_NUMBER_OF_VOXELS: {
-      'train': 16000,
-      'test': 40000
+      'train': 120000,
+      'test': 120000
     }
