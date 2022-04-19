@@ -34,7 +34,7 @@ class CosmosDataset(DatasetTemplate):
             idx = np.argmax(annotation[1]["location"][:, 0])
             max_x_location = annotation[1]["location"][:, 0][idx]
             max_length = annotation[1]["dimensions"][:, 0][idx]
-            if max_x_location-max_length < 0:
+            if max_x_location < 10:
                 unwanted.append(i)
         for ele in sorted(unwanted, reverse=True):
             del self.annotations[ele]

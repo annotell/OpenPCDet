@@ -30,7 +30,7 @@ Steps:
 
 1. Clone repo: git clone git@github.com:annotell/OpenPCDet.git
 2. Build image with:  docker build -t openpcdet-docker -f OpenPCDet/docker/Dockerfile .
-3. docker run -p 8888:8888 --hostname localhost -it -d --gpus all  -v /path/to/dataset/:/data -v /path/to/output/folder/:/root/OpenPCDet/output/ openpcdet:latest 
+3. docker run -p 8888:8888 --hostname localhost -it -d --gpus all  -v /path/to/dataset/:/data -v /path/to/output/folder/:/root/OpenPCDet/output/ openpcdet-docker:latest 
 4. docker exec -it container_id bash
 
 
