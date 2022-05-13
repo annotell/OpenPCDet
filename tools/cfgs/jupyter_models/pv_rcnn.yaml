@@ -5,7 +5,7 @@ DATA_CONFIG:
   POINT_CLOUD_RANGE: [ -140.8, -140.8, -3, 140.8, 140.8, 1 ]
 
 MODEL:
-  NAME: PVRCNN
+  NAME: PVRCNNPlusPlus
 
   VFE:
     NAME: MeanVFE
