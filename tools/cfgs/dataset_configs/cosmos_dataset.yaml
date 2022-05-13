@@ -13,7 +13,7 @@ DATA_AUGMENTOR:
   DISABLE_AUG_LIST: [ 'placeholder' ]
   AUG_CONFIG_LIST:
     - NAME: random_world_flip
-      ALONG_AXIS_LIST: [ 'x' ]
+      ALONG_AXIS_LIST: [ 'x' , 'y']
 
     - NAME: random_world_rotation
       WORLD_ROT_ANGLE: [ -0.78539816, 0.78539816 ]
