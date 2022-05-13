@@ -11,6 +11,7 @@ from .waymo.waymo_dataset import WaymoDataset
 from .pandaset.pandaset_dataset import PandasetDataset
 from .cosmos.cosmos_dataset import CosmosDataset
 from .lyft.lyft_dataset import LyftDataset
+from .jupyter.jupyter_dataset import JupyterDataset
 
 __all__ = {
     'DatasetTemplate': DatasetTemplate,
@@ -19,7 +20,8 @@ __all__ = {
     'WaymoDataset': WaymoDataset,
     'PandasetDataset': PandasetDataset,
     'CosmosDataset': CosmosDataset,
-    'LyftDataset': LyftDataset
+    'LyftDataset': LyftDataset,
+    'JupyterDataset': JupyterDataset
 }
 
 
