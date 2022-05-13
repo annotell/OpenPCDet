@@ -1,7 +1,7 @@
 CLASS_NAMES: [ 'Car', 'HeavyDuty', 'Pedestrian', 'TwoWheeler' ]
 
 DATA_CONFIG:
-  _BASE_CONFIG_: cfgs/dataset_configs/cosmos_dataset.yaml
+  _BASE_CONFIG_: /root/OpenPCDet/tools/cfgs/dataset_configs/cosmos_dataset.yaml
   POINT_CLOUD_RANGE: [ -140.8, -140.8, -3, 140.8, 140.8, 1 ]
 
 MODEL:
