@@ -6,7 +6,8 @@ RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selectio
 RUN apt-get update -y \
     && apt-get install build-essential \
     && apt-get install -y apt-utils git curl ca-certificates bzip2 tree htop wget \
-    && apt-get install -y libglib2.0-0 libsm6 libxext6 libxrender-dev bmon iotop g++ python3.8 python3.8-dev python3.8-distutils
+    && apt-get install -y libglib2.0-0 libsm6 libxext6 libxrender-dev bmon iotop g++ python3.8 python3.8-dev python3.8-distutils \
+    && apt-get install -y nano
 
 # Install cmake v3.13.2
 RUN apt-get purge -y cmake && \
@@ -53,6 +54,9 @@ RUN pip uninstall -y SharedArray && \
     pip install SharedArray
 
 RUN pip install spconv-cu114
+
+RUN pip install notebook
+
 
 COPY OpenPCDet /root/OpenPCDet
 
