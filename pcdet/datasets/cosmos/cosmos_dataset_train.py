@@ -5,7 +5,7 @@ import pickle
 from ..dataset import DatasetTemplate
 
 
-class CosmosDataset(DatasetTemplate):
+class CosmosDatasetTrain(DatasetTemplate):
     def __init__(
             self,
             dataset_cfg=None,
@@ -29,16 +29,16 @@ class CosmosDataset(DatasetTemplate):
                 self.annotations = pickle.load(f)
 
         ### REMOVE FRAMES WITH ONLY OBJECTS THAT ARE OUTSIDE MIN X RANGE, here assumed 0 !!
-        unwanted = []
-        for i, annotation in enumerate(self.annotations):
-            idx = np.argmax(annotation[1]["location"][:, 0])
-            max_x_location = annotation[1]["location"][:, 0][idx]
-            max_length = annotation[1]["dimensions"][:, 0][idx]
-            if max_x_location < 10:
-                unwanted.append(i)
-        for ele in sorted(unwanted, reverse=True):
-            del self.annotations[ele]
-        print(f'Removed {len(unwanted)} frames with objects behind min X range')
+        # unwanted = []
+        # for i, annotation in enumerate(self.annotations):
+        #     idx = np.argmax(annotation[1]["location"][:, 0])
+        #     max_x_location = annotation[1]["location"][:, 0][idx]
+        #     max_length = annotation[1]["dimensions"][:, 0][idx]
+        #     if max_x_location < 10:
+        #         unwanted.append(i)
+        # for ele in sorted(unwanted, reverse=True):
+        #     del self.annotations[ele]
+        # print(f'Removed {len(unwanted)} frames with objects behind min X range')
 
     @staticmethod
     def generate_prediction_dicts(

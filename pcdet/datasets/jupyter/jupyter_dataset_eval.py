@@ -3,7 +3,7 @@ import glob
 from ..dataset import DatasetTemplate
 
 
-class JupyterDataset(DatasetTemplate):
+class JupyterDatasetEval(DatasetTemplate):
     def __init__(
             self,
             dataset_cfg=None,
@@ -20,7 +20,7 @@ class JupyterDataset(DatasetTemplate):
             logger=logger,
         )
 
-        self.lidar_files = sorted(glob.glob(str(self.root_path) + '/*/*.npy'))
+        self.lidar_files = sorted(glob.glob(str(self.root_path) + '/*.npy'))
 
     def __len__(self):
         return len(self.lidar_files)

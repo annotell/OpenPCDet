@@ -9,9 +9,10 @@ from .kitti.kitti_dataset import KittiDataset
 from .nuscenes.nuscenes_dataset import NuScenesDataset
 from .waymo.waymo_dataset import WaymoDataset
 from .pandaset.pandaset_dataset import PandasetDataset
-from .cosmos.cosmos_dataset import CosmosDataset
+from .cosmos.cosmos_dataset_eval import CosmosDatasetEval
+from .cosmos.cosmos_dataset_train import CosmosDatasetTrain
 from .lyft.lyft_dataset import LyftDataset
-from .jupyter.jupyter_dataset import JupyterDataset
+from .jupyter.jupyter_dataset_eval import JupyterDatasetEval
 
 __all__ = {
     'DatasetTemplate': DatasetTemplate,
@@ -19,9 +20,10 @@ __all__ = {
     'NuScenesDataset': NuScenesDataset,
     'WaymoDataset': WaymoDataset,
     'PandasetDataset': PandasetDataset,
-    'CosmosDataset': CosmosDataset,
+    'CosmosDatasetTrain': CosmosDatasetTrain,
+    'CosmosDatasetEval': CosmosDatasetEval,
     'LyftDataset': LyftDataset,
-    'JupyterDataset': JupyterDataset
+    'JupyterDatasetEval': JupyterDatasetEval
 }
 
 

@@ -1,4 +1,4 @@
-DATASET: 'CosmosDataset'
+DATASET: 'CosmosDatasetTrain'
 DATA_PATH: '/root/data/'
 
 GET_ITEM_LIST: [ "points" ]
