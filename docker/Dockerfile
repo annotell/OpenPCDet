@@ -64,4 +64,4 @@ WORKDIR /root/OpenPCDet
 
 RUN python setup.py develop
 
-
+ENV PYTHONPATH "${PYTHONPATH}:/root/OpenPCDet"
