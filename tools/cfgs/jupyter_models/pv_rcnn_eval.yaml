@@ -2,7 +2,7 @@ CLASS_NAMES: [ 'Car', 'HeavyDuty', 'Pedestrian', 'TwoWheeler' ]
 
 DATA_CONFIG:
   _BASE_CONFIG_: /root/OpenPCDet/tools/cfgs/dataset_configs/jupyter_dataset_eval.yaml
-  POINT_CLOUD_RANGE: [ -140.4, -140.4, -3, 140.4, 140.4, 1 ]
+  POINT_CLOUD_RANGE: [ -140.4, -80, -3, 140.4, 80, 1 ]
 
 MODEL:
   NAME: PVRCNNPlusPlus
