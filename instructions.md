@@ -29,12 +29,11 @@ update it and run: sudo systemctl restart docker
 Steps:
 
 1. Clone repo: git clone git@github.com:annotell/OpenPCDet.git
-2. cd OpenPCDet
-3. Build image with:  docker build -t openpcdet-docker -f docker/Dockerfile .
-4. If building image for GCR repo, run instead: docker build -t eu.gcr.io/annotell-com/openpcdet:TAGNAME -f docker/Dockerfile .
-5. To push to GCR repo, run: docker push eu.gcr.io/annotell-com/openpcdet:TAGNAME
-6. docker run -p 8888:8888 --hostname localhost -it -d --gpus all  -v /path/to/dataset/:/data -v /path/to/output/folder/:/root/OpenPCDet/output/ openpcdet-docker:latest 
-7. docker exec -it container_id bash
+2. Build image with:  docker build -t openpcdet-docker -f OpenPCDet/docker/Dockerfile .
+3. If building image for GCR repo, run instead: docker build -t eu.gcr.io/annotell-com/openpcdet:TAGNAME -f OpenPCDet/docker/Dockerfile .
+4. To push to GCR repo, run: docker push eu.gcr.io/annotell-com/openpcdet:TAGNAME
+5. docker run -p 8888:8888 --hostname localhost -it -d --gpus all  -v /path/to/dataset/:/data -v /path/to/output/folder/:/root/OpenPCDet/output/ openpcdet-docker:latest 
+6. docker exec -it container_id bash
 
 
 /path/to/output/folder/ is where OpenPCDet will save logs and models outside the docker image
