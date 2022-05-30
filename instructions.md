@@ -31,7 +31,7 @@ Steps:
 1. Clone repo: git clone git@github.com:annotell/OpenPCDet.git
 2. cd OpenPCDet
 3. Build image with:  docker build -t openpcdet-docker -f docker/Dockerfile .
-4. If building image for GCR repo, run instead: docker build -t eu.gcr.io/annotell-com/openpcdet:TAGNAME -f OpenPCDet/docker/Dockerfile .
+4. If building image for GCR repo, run instead: docker build -t eu.gcr.io/annotell-com/openpcdet:TAGNAME -f docker/Dockerfile .
 5. To push to GCR repo, run: docker push eu.gcr.io/annotell-com/openpcdet:TAGNAME
 6. docker run -p 8888:8888 --hostname localhost -it -d --gpus all  -v /path/to/dataset/:/data -v /path/to/output/folder/:/root/OpenPCDet/output/ openpcdet-docker:latest 
 7. docker exec -it container_id bash
