@@ -53,9 +53,7 @@ RUN wget https://jaist.dl.sourceforge.net/project/boost/boost/1.68.0/boost_1_68_
 RUN pip uninstall -y SharedArray && \
     pip install SharedArray
 
-RUN pip install spconv-cu114
-
-RUN pip install notebook
+RUN pip install spconv-cu114 notebook pyquaternion
 
 RUN apt-get install -y apt-transport-https ca-certificates gnupg
 
