@@ -3,7 +3,7 @@ python -m torch.distributed.launch --nproc_per_node=2 --rdzv_endpoint=localhost:
 
 ###Install OpenPCDet
 
-1. git clone https://github.com/open-mmlab/OpenPCDet.git
+1. git clone git@github.com:annotell/OpenPCDet.git
 2. pip install numpy==1.20
 3. pip install torch==1.10.0+cu113 torchvision==0.11.1+cu113 torchaudio==0.10.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
 4. pip install -r requirements.txt (MAKE sure numpy version is 1.20 otherwise numba will complain)

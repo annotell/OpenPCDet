@@ -13,6 +13,7 @@ from .cosmos.cosmos_dataset_eval import CosmosDatasetEval
 from .cosmos.cosmos_dataset_train import CosmosDatasetTrain
 from .lyft.lyft_dataset import LyftDataset
 from .jupyter.jupyter_dataset_eval import JupyterDatasetEval
+from .jupyter.jupyter_dataset_train import JupyterDatasetTrain
 
 __all__ = {
     'DatasetTemplate': DatasetTemplate,
@@ -23,7 +24,8 @@ __all__ = {
     'CosmosDatasetTrain': CosmosDatasetTrain,
     'CosmosDatasetEval': CosmosDatasetEval,
     'LyftDataset': LyftDataset,
-    'JupyterDatasetEval': JupyterDatasetEval
+    'JupyterDatasetEval': JupyterDatasetEval,
+    'JupyterDatasetTrain': JupyterDatasetTrain
 }
 
 

@@ -27,7 +27,7 @@ class JupyterDatasetEval(DatasetTemplate):
 
     def __getitem__(self, index):
         pointcloud = np.load(self.lidar_files[index], allow_pickle=True)
-        pointcloud = np.c_[pointcloud[:, 0], pointcloud[:, 1], pointcloud[:, 2] - 1.2, pointcloud[:, 3]/2**16]
+        pointcloud = np.c_[pointcloud[:, 0], pointcloud[:, 1], pointcloud[:, 2], pointcloud[:, 3]/2**16]
         get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])
         input_dict = {"frame_id": index}
         if "points" in get_item_list:
