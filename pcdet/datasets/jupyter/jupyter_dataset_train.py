@@ -96,7 +96,7 @@ class JupyterDatasetTrain(DatasetTemplate):
 
     def evaluation(self, eval_det_annos, class_names):
         from .eval import get_official_eval_result
-        from .jupuyter_utils import transform_annotations_to_kitti_format
+        from .jupyter_utils import transform_annotations_to_kitti_format
         eval_gt_annos = [copy.deepcopy(self.annotations[det['frame_id']][1]) for det in eval_det_annos]
         transform_annotations_to_kitti_format(eval_det_annos)
         transform_annotations_to_kitti_format(eval_gt_annos, info_with_fakelidar=self.dataset_cfg.get(
