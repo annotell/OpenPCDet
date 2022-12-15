@@ -30,7 +30,7 @@ RUN wget https://bootstrap.pypa.io/get-pip.py && \
 
 # Install python packages
 RUN PIP_INSTALL="python -m pip --no-cache-dir install" && \
-    $PIP_INSTALL numpy==1.20 llvmlite numba
+    $PIP_INSTALL numpy==1.23.5 llvmlite numba
 
 # Install torch and torchvision
 # See https://pytorch.org/ for other options if you use a different version of CUDA
