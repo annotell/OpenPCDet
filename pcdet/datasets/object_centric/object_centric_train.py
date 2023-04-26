@@ -96,7 +96,11 @@ class ObjectCentricTrainDataset(DatasetTemplate):
         annotation["dimensions"].append(new_scale)
         annotation["location"].append(new_coord)
         annotation["rotation_y"].append(new_rot)
-        annotation["gt_boxes_lidar"] = gt_boxes_lidar
+        annotation["dimensions"] = np.array(annotation["dimensions"])
+        annotation["location"] = np.array(annotation["location"])
+        annotation["rotation_y"] = np.array(annotation["rotation_y"])[..., np.newaxis]
+        annotation["gt_boxes_lidar"] = gt_boxes_lidar[np.newaxis, ...]
+        annotation["name"] = np.array(annotation["name"])
 
         return annotation
 

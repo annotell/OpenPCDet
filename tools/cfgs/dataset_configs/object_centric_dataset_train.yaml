@@ -1,4 +1,4 @@
-DATASET: 'CosmosDatasetTrain'
+DATASET: 'ObjectCentricTrainDataset'
 DATA_PATH: '/mnt/bfd/luca/oc/data/'
 
 GET_ITEM_LIST: [ "points" ]
