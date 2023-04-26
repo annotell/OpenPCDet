@@ -18,7 +18,7 @@ from .jupyter.jupyter_dataset_train import JupyterDatasetTrain
 from .once.once_dataset import ONCEDataset
 from .argo2.argo2_dataset import Argo2Dataset
 from .custom.custom_dataset import CustomDataset
-
+from .object_centric.object_centric_train import ObjectCentricTrainDataset
 __all__ = {
     'DatasetTemplate': DatasetTemplate,
     'KittiDataset': KittiDataset,
@@ -28,7 +28,12 @@ __all__ = {
     'LyftDataset': LyftDataset,
     'ONCEDataset': ONCEDataset,
     'CustomDataset': CustomDataset,
-    'Argo2Dataset': Argo2Dataset
+    'Argo2Dataset': Argo2Dataset,
+    'CosmosDatasetTrain': CosmosDatasetTrain,
+    'CosmosDatasetEval': CosmosDatasetEval,
+    'JupyterDatasetTrain': JupyterDatasetTrain,
+    'JupyterDatasetEval': JupyterDatasetEval,
+    'ObjectCentricTrainDataset': ObjectCentricTrainDataset
 }
 
 
