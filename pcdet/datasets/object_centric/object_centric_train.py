@@ -105,24 +105,36 @@ class ObjectCentricTrainDataset(DatasetTemplate):
 
         return annotation, offset
 
+    @staticmethod
+    def filter_pointcloud(pointcloud):
+        # check how many points in pointcloud are within a cuboid of 6m x 6m x 6m
+        mask = np.logical_and(pointcloud[:, 0] >= -6, pointcloud[:, 0] <= 6)
+        mask = np.logical_and(mask, pointcloud[:, 1] >= -6)
+        mask = np.logical_and(mask, pointcloud[:, 1] <= 6)
+        mask = np.logical_and(mask, pointcloud[:, 2] >= -2)
+        mask = np.logical_and(mask, pointcloud[:, 2] <= 2)
+        pointcloud = pointcloud[mask]
+        return pointcloud
+
     def __getitem__(self, index):
         pc_path = self.annotations[index].replace('.parquet', '.npy')
         pointcloud = np.load(pc_path)
         pointcloud = np.c_[pointcloud[:, 1], -pointcloud[:, 0], pointcloud[:, 2], pointcloud[:, 3]/2**16]
-        get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])
         annotations, new_coord = self.get_annotation_from_parquet(self.annotations[index])
         pointcloud[:, :3] -= new_coord
-        # check how many points in pointcloud are within a radius of 1.5m
-        # if less than 10, then skip this pointcloud
-        while len(pointcloud[pointcloud[:, 0] ** 2 + pointcloud[:, 1] ** 2 + pointcloud[:, 2] ** 2 < 6 ** 2]) <= 10:
+
+        get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])
+
+        pointcloud = self.filter_pointcloud(pointcloud)
+        while len(pointcloud) <= 2:
             # sample a new random index
             index = np.random.randint(0, len(self.annotations))
             pc_path = self.annotations[index].replace('.parquet', '.npy')
             pointcloud = np.load(pc_path)
             pointcloud = np.c_[pointcloud[:, 1], -pointcloud[:, 0], pointcloud[:, 2], pointcloud[:, 3] / 2 ** 16]
-            get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])
             annotations, new_coord = self.get_annotation_from_parquet(self.annotations[index])
             pointcloud[:, :3] -= new_coord
+            pointcloud = self.filter_pointcloud(pointcloud)
 
         input_dict = {"frame_id": index}
         if "points" in get_item_list:
