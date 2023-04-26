@@ -85,7 +85,8 @@ class DataProcessor(object):
 
         if data_dict.get('gt_boxes', None) is not None and config.REMOVE_OUTSIDE_BOXES and self.training:
             mask = box_utils.mask_boxes_outside_range_numpy(
-                data_dict['gt_boxes'], self.point_cloud_range, min_num_corners=config.get('min_num_corners', 1)
+                data_dict['gt_boxes'], self.point_cloud_range, min_num_corners=config.get('min_num_corners', 1), 
+                use_center_to_filter=config.get('USE_CENTER_TO_FILTER', True)
             )
             data_dict['gt_boxes'] = data_dict['gt_boxes'][mask]
         return data_dict
@@ -111,7 +112,23 @@ class DataProcessor(object):
             return partial(self.transform_points_to_voxels_placeholder, config=config)
         
         return data_dict
-        
+
+    def double_flip(self, points):
+        # y flip
+        points_yflip = points.copy()
+        points_yflip[:, 1] = -points_yflip[:, 1]
+
+        # x flip
+        points_xflip = points.copy()
+        points_xflip[:, 0] = -points_xflip[:, 0]
+
+        # x y flip
+        points_xyflip = points.copy()
+        points_xyflip[:, 0] = -points_xyflip[:, 0]
+        points_xyflip[:, 1] = -points_xyflip[:, 1]
+
+        return points_yflip, points_xflip, points_xyflip
+
     def transform_points_to_voxels(self, data_dict=None, config=None):
         if data_dict is None:
             grid_size = (self.point_cloud_range[3:6] - self.point_cloud_range[0:3]) / np.array(config.VOXEL_SIZE)
@@ -137,9 +154,28 @@ class DataProcessor(object):
         if not data_dict['use_lead_xyz']:
             voxels = voxels[..., 3:]  # remove xyz in voxels(N, 3)
 
-        data_dict['voxels'] = voxels
-        data_dict['voxel_coords'] = coordinates
-        data_dict['voxel_num_points'] = num_points
+        if config.get('DOUBLE_FLIP', False):
+            voxels_list, voxel_coords_list, voxel_num_points_list = [voxels], [coordinates], [num_points]
+            points_yflip, points_xflip, points_xyflip = self.double_flip(points)
+            points_list = [points_yflip, points_xflip, points_xyflip]
+            keys = ['yflip', 'xflip', 'xyflip']
+            for i, key in enumerate(keys):
+                voxel_output = self.voxel_generator.generate(points_list[i])
+                voxels, coordinates, num_points = voxel_output
+
+                if not data_dict['use_lead_xyz']:
+                    voxels = voxels[..., 3:]
+                voxels_list.append(voxels)
+                voxel_coords_list.append(coordinates)
+                voxel_num_points_list.append(num_points)
+
+            data_dict['voxels'] = voxels_list
+            data_dict['voxel_coords'] = voxel_coords_list
+            data_dict['voxel_num_points'] = voxel_num_points_list
+        else:
+            data_dict['voxels'] = voxels
+            data_dict['voxel_coords'] = coordinates
+            data_dict['voxel_num_points'] = num_points
         return data_dict
 
     def sample_points(self, data_dict=None, config=None):
