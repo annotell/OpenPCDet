@@ -108,11 +108,11 @@ class ObjectCentricTrainDataset(DatasetTemplate):
     @staticmethod
     def filter_pointcloud(pointcloud):
         # check how many points in pointcloud are within a cuboid of 6m x 6m x 6m
-        mask = np.logical_and(pointcloud[:, 0] >= -6, pointcloud[:, 0] <= 6)
-        mask = np.logical_and(mask, pointcloud[:, 1] >= -6)
-        mask = np.logical_and(mask, pointcloud[:, 1] <= 6)
-        mask = np.logical_and(mask, pointcloud[:, 2] >= -2)
-        mask = np.logical_and(mask, pointcloud[:, 2] <= 2)
+        mask = np.logical_and(pointcloud[:, 0] > -6, pointcloud[:, 0] < 6)
+        mask = np.logical_and(mask, pointcloud[:, 1] > -6)
+        mask = np.logical_and(mask, pointcloud[:, 1] < 6)
+        mask = np.logical_and(mask, pointcloud[:, 2] > -2)
+        mask = np.logical_and(mask, pointcloud[:, 2] < 2)
         pointcloud = pointcloud[mask]
         return pointcloud
 
@@ -126,7 +126,7 @@ class ObjectCentricTrainDataset(DatasetTemplate):
         get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])
 
         pointcloud = self.filter_pointcloud(pointcloud)
-        while len(pointcloud) <= 2:
+        while len(pointcloud) < 5:
             # sample a new random index
             index = np.random.randint(0, len(self.annotations))
             pc_path = self.annotations[index].replace('.parquet', '.npy')
