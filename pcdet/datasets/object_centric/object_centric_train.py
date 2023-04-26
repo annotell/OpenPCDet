@@ -87,7 +87,8 @@ class ObjectCentricTrainDataset(DatasetTemplate):
         rot = df.Cube3D_rotation[0]
         coord = df.Cube3D_coordinates[0]
 
-        new_coord = np.array([coord[1], -coord[0], coord[2]])
+        offset = np.array([coord[1], -coord[0], coord[2]])
+        new_coord = np.array([0,0,0])
         new_scale = np.array([l, w, h])
         new_rot = np.array(Rotation.from_quat(rot).as_euler('xyz')[2] - np.pi / 2)
 
@@ -102,7 +103,7 @@ class ObjectCentricTrainDataset(DatasetTemplate):
         annotation["gt_boxes_lidar"] = gt_boxes_lidar[np.newaxis, ...]
         annotation["name"] = np.array(annotation["name"])
 
-        return annotation, new_coord
+        return annotation, offset
 
     def __getitem__(self, index):
         pc_path = self.annotations[index].replace('.parquet', '.npy')
