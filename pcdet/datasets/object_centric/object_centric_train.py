@@ -102,14 +102,15 @@ class ObjectCentricTrainDataset(DatasetTemplate):
         annotation["gt_boxes_lidar"] = gt_boxes_lidar[np.newaxis, ...]
         annotation["name"] = np.array(annotation["name"])
 
-        return annotation
+        return annotation, new_coord
 
     def __getitem__(self, index):
         pc_path = self.annotations[index].replace('.parquet', '.npy')
         pointcloud = np.load(pc_path)
         pointcloud = np.c_[pointcloud[:, 1], -pointcloud[:, 0], pointcloud[:, 2], pointcloud[:, 3]/2**16]
         get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])
-        annotations = self.get_annotation_from_parquet(self.annotations[index])
+        annotations, new_coord = self.get_annotation_from_parquet(self.annotations[index])
+        pointcloud[:, :3] -= new_coord
 
         input_dict = {"frame_id": index}
         if "points" in get_item_list:
