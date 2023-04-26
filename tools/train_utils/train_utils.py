@@ -52,8 +52,11 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
         model.train()
         optimizer.zero_grad()
 
-        with torch.cuda.amp.autocast(enabled=use_amp):
-            loss, tb_dict, disp_dict = model_func(model, batch)
+        try:
+            with torch.cuda.amp.autocast(enabled=use_amp):
+                loss, tb_dict, disp_dict = model_func(model, batch)
+        except:
+            continue
 
         scaler.scale(loss).backward()
         scaler.unscale_(optimizer)
