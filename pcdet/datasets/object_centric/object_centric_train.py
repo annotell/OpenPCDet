@@ -248,7 +248,7 @@ class ObjectCentricTrainDataset(DatasetTemplate):
         wlh_factor = np.array([1., 1., 1.])
         pts_mask = self.points_in_cuboid(
             cuboid, points[:, [0, 1, 2]], wlh_factor=wlh_factor)
-        points = points[pts_mask, :3]
+        points = points[pts_mask]
         # add column to points and fill with zeros
         points = np.hstack((points, np.zeros((points.shape[0], 1))))
         return points
@@ -315,7 +315,7 @@ class ObjectCentricTrainDataset(DatasetTemplate):
         points, correct_cuboid = self.get_noise_pc_and_box(cuboid_local, points)
         annotation = self.get_annotation_from_cuboid(correct_cuboid)
         points = self.select_points(points)
-        points = np.c_[points[:, 1], -points[:, 0], points[:, 2], points[:, 3] / 2 ** 16, points[:,4]]
+        points = np.c_[points[:, 1], -points[:, 0], points[:, 2], points[:, 3] / 2 ** 16, points[:, 4]]
         return points, annotation
 
     @staticmethod
