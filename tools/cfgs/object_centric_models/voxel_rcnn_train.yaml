@@ -2,7 +2,7 @@ CLASS_NAMES: [ 'Object' ]
 
 DATA_CONFIG:
   _BASE_CONFIG_: /mnt/bfd/luca/oc/OpenPCDet/tools/cfgs/dataset_configs/object_centric_dataset_train.yaml
-  POINT_CLOUD_RANGE: [ -20, -20, -3, 20, 20, 1 ]
+  POINT_CLOUD_RANGE: [ -6, -6, -2, 6, 6, 2 ]
 
 MODEL:
   NAME: VoxelRCNN
@@ -40,7 +40,7 @@ MODEL:
         'class_name': 'Object',
         'anchor_sizes': [ [ 4.20, 1.92, 1.59 ] ],
         'anchor_rotations': [ 0, 1.57 ],
-        'anchor_bottom_heights': [ -1.96 ],
+        'anchor_bottom_heights': [ -0.5 ],
         'align_center': False,
         'feature_map_stride': 8,
         'matched_threshold': 0.6,
@@ -156,7 +156,7 @@ MODEL:
 
 
 OPTIMIZATION:
-  BATCH_SIZE_PER_GPU: 12
+  BATCH_SIZE_PER_GPU: 32
   NUM_EPOCHS: 20
 
   OPTIMIZER: adam_onecycle
@@ -167,7 +167,7 @@ OPTIMIZATION:
   MOMS: [ 0.95, 0.85 ]
   PCT_START: 0.4
   DIV_FACTOR: 10
-  DECAY_STEP_LIST: [ 35, 45 ]
+  DECAY_STEP_LIST: [ 17, 19 ]
   LR_DECAY: 0.1
   LR_CLIP: 0.0000001
 

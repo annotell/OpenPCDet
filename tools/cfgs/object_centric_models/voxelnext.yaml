@@ -63,9 +63,6 @@ MODEL:
 
         EVAL_METRIC: kitti
 
-
-
-
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 36
     NUM_EPOCHS: 10
