@@ -272,8 +272,8 @@ class ObjectCentricTrainDataset(DatasetTemplate):
         mask = np.logical_and(pointcloud[:, 0] > -6, pointcloud[:, 0] < 6)
         mask = np.logical_and(mask, pointcloud[:, 1] > -6)
         mask = np.logical_and(mask, pointcloud[:, 1] < 6)
-        mask = np.logical_and(mask, pointcloud[:, 2] > -4)
-        mask = np.logical_and(mask, pointcloud[:, 2] < 4)
+        mask = np.logical_and(mask, pointcloud[:, 2] > -2)
+        mask = np.logical_and(mask, pointcloud[:, 2] < 2)
         pointcloud = pointcloud[mask]
         return pointcloud
 
@@ -338,7 +338,6 @@ class ObjectCentricTrainDataset(DatasetTemplate):
                                 yz_points[0].flatten(),
                                 yz_points[1].flatten()]).T)
         points = np.vstack(points)
-        points = np.hstack((points, 1*np.ones((points.shape[0], 1))))
         return points
 
     def get_noise_pc_and_box(self, cuboid, points):
@@ -348,7 +347,7 @@ class ObjectCentricTrainDataset(DatasetTemplate):
             (cuboid_points, np.zeros((cuboid_points.shape[0], 1))))
 
         noise_cuboid = self.random_box(cuboid)
-        points[:, :3] = noise_cuboid.transform_points_to_box_coordinate_system(
+        points = noise_cuboid.transform_points_to_box_coordinate_system(
             points[:, :3])
         inv_quat = Rotation.from_matrix(
             noise_cuboid.inverse_rotation_matrix).as_quat()
@@ -377,7 +376,7 @@ class ObjectCentricTrainDataset(DatasetTemplate):
         annotation = self.get_annotation_from_cuboid(correct_cuboid)
         points = self.select_points(points)
         points = np.c_[points[:, 1], -points[:, 0],
-                       points[:, 2], points[:, 3] / 2 ** 16, points[:, 4]]
+                       points[:, 2], points[:, 3]]
         return points, annotation
 
     @staticmethod

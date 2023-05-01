@@ -2,7 +2,7 @@ CLASS_NAMES: ["Object"]
 
 DATA_CONFIG:
   _BASE_CONFIG_: /mnt/bfd/luca/oc/OpenPCDet/tools/cfgs/dataset_configs/object_centric_dataset_train.yaml
-  POINT_CLOUD_RANGE: [-6, -6, -4, 6, 6, 4]
+  POINT_CLOUD_RANGE: [-6, -6, -2, 6, 6, 2]
 
 MODEL:
   NAME: VoxelRCNN
