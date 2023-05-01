@@ -272,8 +272,8 @@ class ObjectCentricTrainDataset(DatasetTemplate):
         mask = np.logical_and(pointcloud[:, 0] > -6, pointcloud[:, 0] < 6)
         mask = np.logical_and(mask, pointcloud[:, 1] > -6)
         mask = np.logical_and(mask, pointcloud[:, 1] < 6)
-        mask = np.logical_and(mask, pointcloud[:, 2] > -2)
-        mask = np.logical_and(mask, pointcloud[:, 2] < 2)
+        mask = np.logical_and(mask, pointcloud[:, 2] > -3)
+        mask = np.logical_and(mask, pointcloud[:, 2] < 3)
         pointcloud = pointcloud[mask]
         return pointcloud
 
