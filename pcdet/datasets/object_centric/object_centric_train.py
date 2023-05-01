@@ -272,8 +272,8 @@ class ObjectCentricTrainDataset(DatasetTemplate):
         mask = np.logical_and(pointcloud[:, 0] > -6, pointcloud[:, 0] < 6)
         mask = np.logical_and(mask, pointcloud[:, 1] > -6)
         mask = np.logical_and(mask, pointcloud[:, 1] < 6)
-        mask = np.logical_and(mask, pointcloud[:, 2] > -3)
-        mask = np.logical_and(mask, pointcloud[:, 2] < 3)
+        mask = np.logical_and(mask, pointcloud[:, 2] > -4)
+        mask = np.logical_and(mask, pointcloud[:, 2] < 4)
         pointcloud = pointcloud[mask]
         return pointcloud
 
@@ -287,10 +287,17 @@ class ObjectCentricTrainDataset(DatasetTemplate):
         scale = cuboid.scale
         rotation = cuboid.rotation
         # sample uniform random point between coordinate - scale and coordinate + scale
-        delta_coordinates = np.random.uniform(
-            coordinates - scale / 2, coordinates + scale / 2)
+        c_lower = [coordinates[0] - scale[0] / 2, coordinates[1] -
+                   scale[1] / 2, coordinates[2] - scale[2]]
+        c_upper = [coordinates[0] + scale[0] / 2, coordinates[1] +
+                   scale[1] / 2, coordinates[2] + scale[2]]
+        delta_coordinates = np.random.uniform(c_lower, c_upper)
         # add noise to quaternion rotation
-        delta_rotation = np.random.normal(rotation, 0.1)
+        yaw_angle = Rotation.from_quat(rotation).as_euler('xyz')[2]
+        yaw_angle = np.random.uniform(yaw_angle - np.pi/4, yaw_angle + np.pi/4)
+        delta_rotation = Rotation.from_euler(
+            'z', yaw_angle).as_quat().astype(float)
+
         noise_cuboid = Cube3D(coordinates=delta_coordinates,
                               rotation=delta_rotation, scale=scale)
 
