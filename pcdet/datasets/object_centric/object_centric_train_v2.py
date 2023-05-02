@@ -257,16 +257,44 @@ class ObjectCentricTrainDataset(DatasetTemplate):
 
         return mask
 
+    def get_cuboid_points(self, cuboid, points):
+        wlh_factor = np.array([1., 1., 1.])
+        pts_mask = self.points_in_cuboid(
+            cuboid, points[:, [0, 1, 2]], wlh_factor=wlh_factor)
+        points = points[pts_mask]
+        # add column to points and fill with zeros
+        points = np.hstack((points, np.zeros((points.shape[0], 1))))
+        return points
+
+    @staticmethod
+    def filter_pointcloud(pointcloud):
+        # check how many points in pointcloud are within a cuboid of 6m x 6m x 6m
+        mask = np.logical_and(pointcloud[:, 0] > -6, pointcloud[:, 0] < 6)
+        mask = np.logical_and(mask, pointcloud[:, 1] > -6)
+        mask = np.logical_and(mask, pointcloud[:, 1] < 6)
+        mask = np.logical_and(mask, pointcloud[:, 2] > -2)
+        mask = np.logical_and(mask, pointcloud[:, 2] < 2)
+        pointcloud = pointcloud[mask]
+        return pointcloud
+
+    def select_points(self, points):
+        points = self.filter_pointcloud(points)
+        return points
+
     @staticmethod
     def random_box(cuboid):
         coordinates = cuboid.coordinates
         scale = cuboid.scale
         rotation = cuboid.rotation
         # sample uniform random point between coordinate - scale and coordinate + scale
-        delta_coordinates = np.random.uniform(coordinates - 1, coordinates + 1)
+        c_lower = [coordinates[0] - scale[0] / 2, coordinates[1] -
+                   scale[1] / 2, coordinates[2] - scale[2]]
+        c_upper = [coordinates[0] + scale[0] / 2, coordinates[1] +
+                   scale[1] / 2, coordinates[2] + scale[2]]
+        delta_coordinates = np.random.uniform(c_lower, c_upper)
         # add noise to quaternion rotation
         yaw_angle = Rotation.from_quat(rotation).as_euler('xyz')[2]
-        yaw_angle = np.random.uniform(yaw_angle - np.pi/6, yaw_angle + np.pi/6)
+        yaw_angle = np.random.uniform(yaw_angle - np.pi/4, yaw_angle + np.pi/4)
         delta_rotation = Rotation.from_euler(
             'z', yaw_angle).as_quat().astype(float)
 
@@ -276,7 +304,7 @@ class ObjectCentricTrainDataset(DatasetTemplate):
         return noise_cuboid
 
     @staticmethod
-    def generate_points_cuboid(height, width, length, spacing=20):
+    def generate_points_cuboid(height, width, length, spacing=15):
         points = []
         num_points_per_face = int(height / (spacing / 100))
         xy_points = np.meshgrid(np.linspace(-width/2, width/2, num_points_per_face),
@@ -346,12 +374,7 @@ class ObjectCentricTrainDataset(DatasetTemplate):
         points, correct_cuboid = self.get_noise_pc_and_box(
             cuboid_local, points)
         annotation = self.get_annotation_from_cuboid(correct_cuboid)
-
-        w, l, h = cuboid_local.scale
-        wlh_factor = np.array([(w + 2.5)/w, (l + 2.5)/l, (h + 2.5)/h])
-        pts_mask = self.points_in_cuboid(
-            cuboid_local, points[:, [0, 1, 2]], wlh_factor=wlh_factor)
-        points = points[pts_mask]
+        points = self.select_points(points)
         points = np.c_[points[:, 1], -points[:, 0],
                        points[:, 2], points[:, 3]]
         return points, annotation
