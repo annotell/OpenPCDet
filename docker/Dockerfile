@@ -1,32 +1,17 @@
-FROM nvidia/cuda:11.4.0-cudnn8-devel-ubuntu20.04
+FROM nvidia/cuda:11.7.1-cudnn8-devel-ubuntu22.04
 
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 
 # Install basics
+
+RUN apt-get update && apt-get install -y python3-opencv ca-certificates python3.10 python3-pip git wget sudo ninja-build
+RUN ln -sv /usr/bin/python3.10 /usr/bin/python
+
 RUN apt-get update -y \
-    && apt-get install build-essential \
-    && apt-get install -y apt-utils git curl ca-certificates bzip2 tree htop wget \
-    && apt-get install -y libglib2.0-0 libsm6 libxext6 libxrender-dev bmon iotop g++ python3.8 python3.8-dev python3.8-distutils \
-    && apt-get install -y nano
+    && apt-get install -y build-essential \
+    && apt-get install -y libglib2.0-0 libsm6 libxext6 libxrender-dev bmon g++ libboost-all-dev
 
-# Install cmake v3.13.2
-RUN apt-get purge -y cmake && \
-    mkdir /root/temp && \
-    cd /root/temp && \
-    wget https://github.com/Kitware/CMake/releases/download/v3.13.2/cmake-3.13.2.tar.gz && \
-    tar -xzvf cmake-3.13.2.tar.gz && \
-    cd cmake-3.13.2 && \
-    bash ./bootstrap && \
-    make && \
-    make install && \
-    cmake --version && \
-    rm -rf /root/temp
-
-# Install python
-RUN ln -sv /usr/bin/python3.8 /usr/bin/python
-RUN wget https://bootstrap.pypa.io/get-pip.py && \
-	python get-pip.py && \
-	rm get-pip.py
+RUN pip install cmake onnx
 
 # Install python packages
 RUN PIP_INSTALL="python -m pip --no-cache-dir install" && \
@@ -34,7 +19,7 @@ RUN PIP_INSTALL="python -m pip --no-cache-dir install" && \
 
 # Install torch and torchvision
 # See https://pytorch.org/ for other options if you use a different version of CUDA
-RUN pip install --user torch==1.12.1+cu113 torchvision==0.13.1+cu113 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu113
+RUN pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 -f https://download.pytorch.org/whl/cu117/torch_stable.html
 
 # Install python packages
 RUN PIP_INSTALL="python -m pip --no-cache-dir install" && \
@@ -42,26 +27,22 @@ RUN PIP_INSTALL="python -m pip --no-cache-dir install" && \
 
 WORKDIR /root
 
-# Install Boost geometry
-RUN wget https://jaist.dl.sourceforge.net/project/boost/boost/1.68.0/boost_1_68_0.tar.gz && \
-    tar xzvf boost_1_68_0.tar.gz && \
-    cp -r ./boost_1_68_0/boost /usr/include && \
-    rm -rf ./boost_1_68_0 && \
-    rm -rf ./boost_1_68_0.tar.gz
-
 # A weired problem that hasn't been solved yet
 RUN pip uninstall -y SharedArray && \
     pip install SharedArray
 
-RUN pip install spconv-cu114 notebook pyquaternion
-
-RUN apt-get install -y apt-transport-https ca-certificates gnupg
-
-RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | tee /usr/share/keyrings/cloud.google.gpg && apt-get update -y && apt-get install google-cloud-sdk -y
+RUN pip install spconv-cu117 notebook pyquaternion
 
 COPY OpenPCDet /root/OpenPCDet
 
 WORKDIR /root/OpenPCDet
+
+# set FORCE_CUDA because during `docker build` cuda is not accessible
+ENV FORCE_CUDA="1"
+# This will by default build detectron2 for all common cuda architectures and take a lot more time,
+# because inside `docker build`, there is no way to tell which architecture will be used.
+ARG TORCH_CUDA_ARCH_LIST="Kepler;Kepler+Tesla;Maxwell;Maxwell+Tegra;Pascal;Volta;Turing"
+ENV TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST}"
 
 RUN python setup.py develop
 

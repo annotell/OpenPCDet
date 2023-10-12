@@ -1,44 +1,46 @@
-import torch
 from functools import partial
+
+import torch
 from torch.utils.data import DataLoader
 from torch.utils.data import DistributedSampler as _DistributedSampler
 
 from pcdet.utils import common_utils
 
-from .dataset import DatasetTemplate
-from .kitti.kitti_dataset import KittiDataset
-from .nuscenes.nuscenes_dataset import NuScenesDataset
-from .waymo.waymo_dataset import WaymoDataset
-from .pandaset.pandaset_dataset import PandasetDataset
 from .cosmos.cosmos_dataset_eval import CosmosDatasetEval
 from .cosmos.cosmos_dataset_train import CosmosDatasetTrain
-from .lyft.lyft_dataset import LyftDataset
+
+# from .argo2.argo2_dataset import Argo2Dataset
+from .custom.custom_dataset import CustomDataset
+from .dataset import DatasetTemplate
 from .jupyter.jupyter_dataset_eval import JupyterDatasetEval
 from .jupyter.jupyter_dataset_train import JupyterDatasetTrain
-from .once.once_dataset import ONCEDataset
-from .argo2.argo2_dataset import Argo2Dataset
-from .custom.custom_dataset import CustomDataset
+from .kitti.kitti_dataset import KittiDataset
+from .lyft.lyft_dataset import LyftDataset
+from .nuscenes.nuscenes_dataset import NuScenesDataset
 from .object_centric.object_centric_train import ObjectCentricTrainDataset
+from .once.once_dataset import ONCEDataset
+from .pandaset.pandaset_dataset import PandasetDataset
+from .waymo.waymo_dataset import WaymoDataset
+
 __all__ = {
-    'DatasetTemplate': DatasetTemplate,
-    'KittiDataset': KittiDataset,
-    'NuScenesDataset': NuScenesDataset,
-    'WaymoDataset': WaymoDataset,
-    'PandasetDataset': PandasetDataset,
-    'LyftDataset': LyftDataset,
-    'ONCEDataset': ONCEDataset,
-    'CustomDataset': CustomDataset,
-    'Argo2Dataset': Argo2Dataset,
-    'CosmosDatasetTrain': CosmosDatasetTrain,
-    'CosmosDatasetEval': CosmosDatasetEval,
-    'JupyterDatasetTrain': JupyterDatasetTrain,
-    'JupyterDatasetEval': JupyterDatasetEval,
-    'ObjectCentricTrainDataset': ObjectCentricTrainDataset
+    "DatasetTemplate": DatasetTemplate,
+    "KittiDataset": KittiDataset,
+    "NuScenesDataset": NuScenesDataset,
+    "WaymoDataset": WaymoDataset,
+    "PandasetDataset": PandasetDataset,
+    "LyftDataset": LyftDataset,
+    "ONCEDataset": ONCEDataset,
+    "CustomDataset": CustomDataset,
+    # 'Argo2Dataset': Argo2Dataset,
+    "CosmosDatasetTrain": CosmosDatasetTrain,
+    "CosmosDatasetEval": CosmosDatasetEval,
+    "JupyterDatasetTrain": JupyterDatasetTrain,
+    "JupyterDatasetEval": JupyterDatasetEval,
+    "ObjectCentricTrainDataset": ObjectCentricTrainDataset,
 }
 
 
 class DistributedSampler(_DistributedSampler):
-
     def __init__(self, dataset, num_replicas=None, rank=None, shuffle=True):
         super().__init__(dataset, num_replicas=num_replicas, rank=rank)
         self.shuffle = shuffle
@@ -51,17 +53,28 @@ class DistributedSampler(_DistributedSampler):
         else:
             indices = torch.arange(len(self.dataset)).tolist()
 
-        indices += indices[:(self.total_size - len(indices))]
+        indices += indices[: (self.total_size - len(indices))]
         assert len(indices) == self.total_size
 
-        indices = indices[self.rank:self.total_size:self.num_replicas]
+        indices = indices[self.rank : self.total_size : self.num_replicas]
         assert len(indices) == self.num_samples
 
         return iter(indices)
 
 
-def build_dataloader(dataset_cfg, class_names, batch_size, dist, root_path=None, workers=4, seed=None,
-                     logger=None, training=True, merge_all_iters_to_one_epoch=False, total_epochs=0):
+def build_dataloader(
+    dataset_cfg,
+    class_names,
+    batch_size,
+    dist,
+    root_path=None,
+    workers=4,
+    seed=None,
+    logger=None,
+    training=True,
+    merge_all_iters_to_one_epoch=False,
+    total_epochs=0,
+):
     dataset = __all__[dataset_cfg.DATASET](
         dataset_cfg=dataset_cfg,
         class_names=class_names,
@@ -71,7 +84,7 @@ def build_dataloader(dataset_cfg, class_names, batch_size, dist, root_path=None,
     )
 
     if merge_all_iters_to_one_epoch:
-        assert hasattr(dataset, 'merge_all_iters_to_one_epoch')
+        assert hasattr(dataset, "merge_all_iters_to_one_epoch")
         dataset.merge_all_iters_to_one_epoch(merge=True, epochs=total_epochs)
 
     if dist:
@@ -83,9 +96,16 @@ def build_dataloader(dataset_cfg, class_names, batch_size, dist, root_path=None,
     else:
         sampler = None
     dataloader = DataLoader(
-        dataset, batch_size=batch_size, pin_memory=True, num_workers=workers,
-        shuffle=(sampler is None) and training, collate_fn=dataset.collate_batch,
-        drop_last=False, sampler=sampler, timeout=0, worker_init_fn=partial(common_utils.worker_init_fn, seed=seed)
+        dataset,
+        batch_size=batch_size,
+        pin_memory=True,
+        num_workers=workers,
+        shuffle=(sampler is None) and training,
+        collate_fn=dataset.collate_batch,
+        drop_last=False,
+        sampler=sampler,
+        timeout=0,
+        worker_init_fn=partial(common_utils.worker_init_fn, seed=seed),
     )
 
     return dataset, dataloader, sampler
