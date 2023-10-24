@@ -6,9 +6,11 @@ python -m torch.distributed.launch --nproc_per_node=2 --rdzv_endpoint=localhost:
 1. git clone git@github.com:annotell/OpenPCDet.git
 2. pip install numpy==1.20
 3. pip install torch==1.10.0+cu113 torchvision==0.11.1+cu113 torchaudio==0.10.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
+3b. If 3 gives you problems try this incantation: pip install torch==1.9.0+cu102 torchvision==0.10.0+cu102 torchaudio==0.9.0 -f https://download.pytorch.org/whl/torch_stable.html
 4. pip install -r requirements.txt (MAKE sure numpy version is 1.20 otherwise numba will complain)
 5. pip install spconv-cu114
 6. python setup.py develop
+7. If 6 gives you problems with CUDA version try using 3b, above.
 
 ###Using docker - recommended 
 Assuming CUDA is version 11.3 and installs pytorch 1.10.
