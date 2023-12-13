@@ -6,6 +6,8 @@ from torch.utils.data import DistributedSampler as _DistributedSampler
 
 from pcdet.utils import common_utils
 
+from .autobaans.autobaans_dataset_eval import AutobaansDatasetEval
+from .autobaans.autobaans_dataset_train import AutobaansDatasetTrain
 from .cosmos.cosmos_dataset_eval import CosmosDatasetEval
 from .cosmos.cosmos_dataset_train import CosmosDatasetTrain
 
@@ -37,6 +39,8 @@ __all__ = {
     "JupyterDatasetTrain": JupyterDatasetTrain,
     "JupyterDatasetEval": JupyterDatasetEval,
     "ObjectCentricTrainDataset": ObjectCentricTrainDataset,
+    "AutobaansDatasetTrain": AutobaansDatasetTrain,
+    "AutobaansDatasetEval": AutobaansDatasetEval,
 }
 
 

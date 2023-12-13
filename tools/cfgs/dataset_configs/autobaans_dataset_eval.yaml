@@ -1,0 +1,34 @@
+DATASET: 'AutobaansDatasetEval'
+DATA_PATH: '/root/data/'
+
+GET_ITEM_LIST: [ "points" ]
+FOV_POINTS_ONLY: True
+
+DATA_SPLIT: {
+    'train': train,
+    'test': val
+}
+
+POINT_FEATURE_ENCODING: {
+  encoding_type: absolute_coordinates_encoding,
+  used_feature_list: [ 'x', 'y', 'z', 'intensity' ],
+  src_feature_list: [ 'x', 'y', 'z', 'intensity' ],
+}
+
+DATA_PROCESSOR:
+  - NAME: mask_points_and_boxes_outside_range
+    REMOVE_OUTSIDE_BOXES: True
+
+  - NAME: shuffle_points
+    SHUFFLE_ENABLED: {
+      'train': True,
+      'test': False
+    }
+
+  - NAME: transform_points_to_voxels
+    VOXEL_SIZE: [ 0.05, 0.05, 0.1 ]
+    MAX_POINTS_PER_VOXEL: 5
+    MAX_NUMBER_OF_VOXELS: {
+      'train': 200000,
+      'test': 200000
+    }

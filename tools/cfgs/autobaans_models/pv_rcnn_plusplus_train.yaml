@@ -1,8 +1,8 @@
-CLASS_NAMES: [ 'Car', 'HeavyDuty', 'Pedestrian', 'TwoWheeler' ]
+CLASS_NAMES: [ 'Vehicle']
 
 DATA_CONFIG:
-  _BASE_CONFIG_: /root/OpenPCDet/tools/cfgs/dataset_configs/cosmos_dataset_eval.yaml
-  POINT_CLOUD_RANGE: [ -140.4, -80, -3, 140.4, 80, 1 ]
+  _BASE_CONFIG_: /root/OpenPCDet/tools/cfgs/dataset_configs/autobaans_dataset_train.yaml
+  POINT_CLOUD_RANGE: [ -100.4, -60, -2, 140.4, 60, 2.5 ]
 
 MODEL:
   NAME: PVRCNNPlusPlus
@@ -37,47 +37,16 @@ MODEL:
 
     ANCHOR_GENERATOR_CONFIG: [
       {
-        'class_name': 'Car',
+        'class_name': 'Vehicle',
         'anchor_sizes': [ [ 4.20, 1.92, 1.59 ] ],
         'anchor_rotations': [ 0, 1.57 ],
-        'anchor_bottom_heights': [ -1.96 ],
+        'anchor_bottom_heights': [ 0 ],
         'align_center': False,
         'feature_map_stride': 8,
         'matched_threshold': 0.6,
         'unmatched_threshold': 0.45
-      },
-      {
-        'class_name': 'HeavyDuty',
-        'anchor_sizes': [ [ 12.17, 2.89, 3.56 ] ],
-        'anchor_rotations': [ 0, 1.57 ],
-        'anchor_bottom_heights': [ -1.96 ],
-        'align_center': False,
-        'feature_map_stride': 8,
-        'matched_threshold': 0.6,
-        'unmatched_threshold': 0.45
-      },
-      {
-        'class_name': 'Pedestrian',
-        'anchor_sizes': [ [ 0.57, 0.63, 1.66 ] ],
-        'anchor_rotations': [ 0, 1.57 ],
-        'anchor_bottom_heights': [ -1.86 ],
-        'align_center': False,
-        'feature_map_stride': 8,
-        'matched_threshold': 0.5,
-        'unmatched_threshold': 0.35
-      },
-      {
-        'class_name': 'TwoWheeler',
-        'anchor_sizes': [ [ 1.77, 0.60, 1.34 ] ],
-        'anchor_rotations': [ 0, 1.57 ],
-        'anchor_bottom_heights': [ -1.97 ],
-        'align_center': False,
-        'feature_map_stride': 8,
-        'matched_threshold': 0.5,
-        'unmatched_threshold': 0.35
       }
     ]
-
 
     TARGET_ASSIGNER_CONFIG:
       NAME: AxisAlignedTargetAssigner
@@ -278,10 +247,10 @@ MODEL:
 
 OPTIMIZATION:
   BATCH_SIZE_PER_GPU: 3
-  NUM_EPOCHS: 35
+  NUM_EPOCHS: 20
 
   OPTIMIZER: adam_onecycle
-  LR: 0.01
+  LR: 0.002
   WEIGHT_DECAY: 0.001
   MOMENTUM: 0.9
 
