@@ -2,7 +2,7 @@ CLASS_NAMES: [ 'Vehicle' ]
 
 DATA_CONFIG:
   _BASE_CONFIG_: /root/OpenPCDet/tools/cfgs/dataset_configs/autobaans_dataset_eval.yaml
-  POINT_CLOUD_RANGE: [ -100.4, -60, -2, 140.4, 60, 2.5 ]
+  POINT_CLOUD_RANGE: [ -100.4, -60, -2, 140.4, 60, 4 ]
 
 MODEL:
   NAME: PVRCNNPlusPlus

@@ -2,7 +2,7 @@ CLASS_NAMES: [ 'Vehicle']
 
 DATA_CONFIG:
   _BASE_CONFIG_: /root/OpenPCDet/tools/cfgs/dataset_configs/autobaans_dataset_train.yaml
-  POINT_CLOUD_RANGE: [ -100.4, -60, -2, 140.4, 60, 2.5 ]
+  POINT_CLOUD_RANGE: [ -100.4, -60, -2, 140.4, 60, 4 ]
 
 MODEL:
   NAME: PVRCNNPlusPlus
@@ -250,13 +250,13 @@ OPTIMIZATION:
   NUM_EPOCHS: 25
 
   OPTIMIZER: adam_onecycle
-  LR: 0.002
+  LR: 0.0005
   WEIGHT_DECAY: 0.001
   MOMENTUM: 0.9
 
   MOMS: [ 0.95, 0.85 ]
   PCT_START: 0.4
-  DIV_FACTOR: 10
+  DIV_FACTOR: 1
   DECAY_STEP_LIST: [ 19, 22 ]
   LR_DECAY: 0.1
   LR_CLIP: 0.0000001
