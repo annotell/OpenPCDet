@@ -1,5 +1,5 @@
 DATASET: 'AutobaansDatasetEval'
-DATA_PATH: '/root/data/'
+DATA_PATH: '/root/autobaans/3dod/dataset/'
 
 GET_ITEM_LIST: [ "points" ]
 FOV_POINTS_ONLY: True
