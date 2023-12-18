@@ -1,10 +1,11 @@
+import glob
 import os
+import time
 
 import torch
 import tqdm
-import time
-import glob
 from torch.nn.utils import clip_grad_norm_
+
 from pcdet.utils import common_utils, commu_utils
 
 
@@ -52,11 +53,8 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
         model.train()
         optimizer.zero_grad()
 
-        try:
-            with torch.cuda.amp.autocast(enabled=use_amp):
-                loss, tb_dict, disp_dict = model_func(model, batch)
-        except:
-            continue
+        with torch.cuda.amp.autocast(enabled=use_amp):
+            loss, tb_dict, disp_dict = model_func(model, batch)
 
         scaler.scale(loss).backward()
         scaler.unscale_(optimizer)

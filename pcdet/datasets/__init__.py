@@ -6,20 +6,14 @@ from torch.utils.data import DistributedSampler as _DistributedSampler
 
 from pcdet.utils import common_utils
 
-from .autobaans.autobaans_dataset_eval import AutobaansDatasetEval
-from .autobaans.autobaans_dataset_train import AutobaansDatasetTrain
-from .cosmos.cosmos_dataset_eval import CosmosDatasetEval
-from .cosmos.cosmos_dataset_train import CosmosDatasetTrain
+from .autobaans.autobaans_dataset import AutobaansDataset
 
 # from .argo2.argo2_dataset import Argo2Dataset
 from .custom.custom_dataset import CustomDataset
 from .dataset import DatasetTemplate
-from .jupyter.jupyter_dataset_eval import JupyterDatasetEval
-from .jupyter.jupyter_dataset_train import JupyterDatasetTrain
 from .kitti.kitti_dataset import KittiDataset
 from .lyft.lyft_dataset import LyftDataset
 from .nuscenes.nuscenes_dataset import NuScenesDataset
-from .object_centric.object_centric_train import ObjectCentricTrainDataset
 from .once.once_dataset import ONCEDataset
 from .pandaset.pandaset_dataset import PandasetDataset
 from .waymo.waymo_dataset import WaymoDataset
@@ -34,13 +28,7 @@ __all__ = {
     "ONCEDataset": ONCEDataset,
     "CustomDataset": CustomDataset,
     # 'Argo2Dataset': Argo2Dataset,
-    "CosmosDatasetTrain": CosmosDatasetTrain,
-    "CosmosDatasetEval": CosmosDatasetEval,
-    "JupyterDatasetTrain": JupyterDatasetTrain,
-    "JupyterDatasetEval": JupyterDatasetEval,
-    "ObjectCentricTrainDataset": ObjectCentricTrainDataset,
-    "AutobaansDatasetTrain": AutobaansDatasetTrain,
-    "AutobaansDatasetEval": AutobaansDatasetEval,
+    "AutobaansDataset": AutobaansDataset,
 }
 
 
