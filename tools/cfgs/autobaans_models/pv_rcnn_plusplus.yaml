@@ -1,4 +1,4 @@
-CLASS_NAMES: [ 'Vehicle']
+CLASS_NAMES: [ 'Medium', 'Large', 'VeryLarge']
 
 DATA_CONFIG:
   _BASE_CONFIG_: /root/OpenPCDet/tools/cfgs/dataset_configs/autobaans_dataset.yaml
@@ -34,11 +34,31 @@ MODEL:
     DIR_OFFSET: 0.78539
     DIR_LIMIT_OFFSET: 0.0
     NUM_DIR_BINS: 2
-
+    
     ANCHOR_GENERATOR_CONFIG: [
       {
-        'class_name': 'Vehicle',
-        'anchor_sizes': [ [ 4.20, 1.92, 1.59 ] ],
+        'class_name': 'Medium',
+        'anchor_sizes': [ [ 3.8, 1.8, 1.6 ] ],
+        'anchor_rotations': [ 0, 1.57 ],
+        'anchor_bottom_heights': [ 0 ],
+        'align_center': False,
+        'feature_map_stride': 8,
+        'matched_threshold': 0.6,
+        'unmatched_threshold': 0.45
+      },
+      {
+        'class_name': 'Large',
+        'anchor_sizes': [ [ 6.5, 2.4, 3.0 ] ],
+        'anchor_rotations': [ 0, 1.57 ],
+        'anchor_bottom_heights': [ 0 ],
+        'align_center': False,
+        'feature_map_stride': 8,
+        'matched_threshold': 0.6,
+        'unmatched_threshold': 0.45
+      },
+            {
+        'class_name': 'VeryLarge',
+        'anchor_sizes': [ [ 10.7, 2.7, 3.4 ] ],
         'anchor_rotations': [ 0, 1.57 ],
         'anchor_bottom_heights': [ 0 ],
         'align_center': False,

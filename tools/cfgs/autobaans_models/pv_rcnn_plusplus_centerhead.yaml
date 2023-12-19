@@ -1,4 +1,4 @@
-CLASS_NAMES:  [ 'Vehicle' ]
+CLASS_NAMES: [ 'Medium', 'Large', 'VeryLarge']
 
 DATA_CONFIG:
   _BASE_CONFIG_: /root/OpenPCDet/tools/cfgs/dataset_configs/autobaans_dataset.yaml
@@ -31,7 +31,7 @@ MODEL:
     CLASS_AGNOSTIC: False
 
     CLASS_NAMES_EACH_HEAD: [
-      [ 'Vehicle' ]
+      [ 'Medium', 'Large', 'VeryLarge' ]
     ]
 
     SHARED_CONV_CHANNEL: 64

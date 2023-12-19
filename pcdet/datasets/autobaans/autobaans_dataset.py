@@ -37,7 +37,7 @@ class AutobaansDataset(DatasetTemplate):
         pc_path = os.path.join(str(self.root_path), self.annotations[index][0])
         pointcloud = np.load(pc_path, allow_pickle=True)
         pointcloud = pointcloud['arr_0']
-        pointcloud = np.c_[pointcloud[:, 0], pointcloud[:, 1], pointcloud[:, 2], pointcloud[:, 3]/2**16, pointcloud[:, 3]/2**16]
+        pointcloud = np.c_[pointcloud[:, 0], pointcloud[:, 1], pointcloud[:, 2], pointcloud[:, 3]/2**16]
         get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])
         annotations = self.annotations[index][1]
 
