@@ -76,7 +76,7 @@ class AutobaansDataset(DatasetTemplate):
             index = index % len(self.custom_infos)
         pointcloud = self.get_lidar(index)
         get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])
-        annotations = self.annotations[index][1]
+        annotations = self.custom_infos[index][1]
 
         input_dict = {"frame_id": index}
         if "points" in get_item_list:

@@ -41,7 +41,7 @@ DATA_AUGMENTOR:
       PREPARE: {
           filter_by_min_points: ['Medium:3', 'Large:3', 'VeryLarge:3'],
       }
-      SAMPLE_GROUPS: ['Medium:3', 'Large:10', 'VeryLarge:10']
+      SAMPLE_GROUPS: ['Medium:20']
       NUM_POINT_FEATURES: 4
       REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
       LIMIT_WHOLE_SCENE: False
@@ -63,7 +63,7 @@ DATA_PROCESSOR:
     }
 
   - NAME: transform_points_to_voxels
-    VOXEL_SIZE: [ 0.05, 0.05, 0.15 ]
+    VOXEL_SIZE: [ 0.10, 0.10, 0.15 ]
     MAX_POINTS_PER_VOXEL: 10
     MAX_NUMBER_OF_VOXELS: {
       'train': 150000,
