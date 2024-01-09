@@ -20,6 +20,7 @@ RUN PIP_INSTALL="python -m pip --no-cache-dir install" && \
 # Install torch and torchvision
 # See https://pytorch.org/ for other options if you use a different version of CUDA
 RUN pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 -f https://download.pytorch.org/whl/cu117/torch_stable.html
+RUN pip install torch-scatter==2.1.1
 
 # Install python packages
 RUN PIP_INSTALL="python -m pip --no-cache-dir install" && \
