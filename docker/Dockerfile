@@ -47,3 +47,5 @@ ENV TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST}"
 RUN python setup.py develop
 
 ENV PYTHONPATH "${PYTHONPATH}:/root/OpenPCDet"
+
+RUN pip install "git+https://github.com/facebookresearch/pytorch3d.git"

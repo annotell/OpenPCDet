@@ -2,7 +2,6 @@ CLASS_NAMES: [ 'Medium', 'Large', 'VeryLarge']
 
 DATA_CONFIG:
   _BASE_CONFIG_: /root/OpenPCDet/tools/cfgs/dataset_configs/autobaans_dataset.yaml
-  POINT_CLOUD_RANGE: [ -100.4, -60, -2, 140.4, 60, 4 ]
 
 MODEL:
   NAME: PVRCNNPlusPlus
@@ -19,7 +18,6 @@ MODEL:
 
   BACKBONE_2D:
     NAME: BaseBEVBackbone
-
     LAYER_NUMS: [ 5, 5 ]
     LAYER_STRIDES: [ 1, 2 ]
     NUM_FILTERS: [ 128, 256 ]
@@ -56,7 +54,7 @@ MODEL:
         'matched_threshold': 0.6,
         'unmatched_threshold': 0.45
       },
-            {
+      {
         'class_name': 'VeryLarge',
         'anchor_sizes': [ [ 10.7, 2.7, 3.4 ] ],
         'anchor_rotations': [ 0, 1.57 ],
@@ -87,7 +85,7 @@ MODEL:
   PFE:
     NAME: VoxelSetAbstraction
     POINT_SOURCE: raw_points
-    NUM_KEYPOINTS: 2048
+    NUM_KEYPOINTS: 4096
     NUM_OUTPUT_FEATURES: 90
     SAMPLE_METHOD: SPC
     SPC_SAMPLING:
@@ -198,8 +196,8 @@ MODEL:
       TEST:
         NMS_TYPE: nms_gpu
         MULTI_CLASSES_NMS: False
-        NMS_PRE_MAXSIZE: 1024
-        NMS_POST_MAXSIZE: 100
+        NMS_PRE_MAXSIZE: 2048
+        NMS_POST_MAXSIZE: 512
         NMS_THRESH: 0.7
         SCORE_THRESH: 0.1
 
@@ -266,22 +264,22 @@ MODEL:
 
 
 OPTIMIZATION:
-  BATCH_SIZE_PER_GPU: 3
+  BATCH_SIZE_PER_GPU: 8
   NUM_EPOCHS: 25
 
   OPTIMIZER: adam_onecycle
-  LR: 0.0005
+  LR: 0.001
   WEIGHT_DECAY: 0.001
   MOMENTUM: 0.9
 
   MOMS: [ 0.95, 0.85 ]
   PCT_START: 0.4
-  DIV_FACTOR: 1
+  DIV_FACTOR: 10
   DECAY_STEP_LIST: [ 19, 22 ]
   LR_DECAY: 0.1
   LR_CLIP: 0.0000001
 
   LR_WARMUP: False
-  WARMUP_EPOCH: 0
+  WARMUP_EPOCH: 1
 
   GRAD_NORM_CLIP: 10

@@ -13,6 +13,11 @@ DATA_SPLIT: {
     'test': val
 }
 
+INFO_PATH: {
+    'train': ["autobaans_infos_train.pkl"],
+    'test': ["autobaans_infos_val.pkl"],
+}
+
 DATA_AUGMENTOR:
   DISABLE_AUG_LIST: [ 'placeholder' ]
   AUG_CONFIG_LIST:
@@ -28,6 +33,18 @@ DATA_AUGMENTOR:
     - NAME: random_world_translation
       NOISE_TRANSLATE_STD: [0.5, 0.5, 0.5]
     
+    - NAME: gt_sampling
+      USE_ROAD_PLANE: False
+      DB_INFO_PATH:
+          - autobaans_dbinfos_train.pkl
+      USE_SHARED_MEMORY: False  # set it to True to speed up (it costs about 15GB shared memory)
+      PREPARE: {
+          filter_by_min_points: ['Medium:3', 'Large:3', 'VeryLarge:3'],
+      }
+      SAMPLE_GROUPS: ['Medium:3', 'Large:10', 'VeryLarge:10']
+      NUM_POINT_FEATURES: 4
+      REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
+      LIMIT_WHOLE_SCENE: False
 
 POINT_FEATURE_ENCODING: {
   encoding_type: absolute_coordinates_encoding,
@@ -46,7 +63,7 @@ DATA_PROCESSOR:
     }
 
   - NAME: transform_points_to_voxels
-    VOXEL_SIZE: [ 0.10, 0.10, 0.15 ]
+    VOXEL_SIZE: [ 0.05, 0.05, 0.15 ]
     MAX_POINTS_PER_VOXEL: 10
     MAX_NUMBER_OF_VOXELS: {
       'train': 150000,

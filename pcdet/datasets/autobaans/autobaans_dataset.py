@@ -1,43 +1,80 @@
 import copy
-import os.path
+import os
 import pickle
 
 import numpy as np
 
+from ...ops.roiaware_pool3d import roiaware_pool3d_utils
+from ...utils import common_utils
 from ..dataset import DatasetTemplate
 
 
 class AutobaansDataset(DatasetTemplate):
-    def __init__(
-            self,
-            dataset_cfg=None,
-            class_names=None,
-            training=True,
-            root_path=None,
-            logger=None,
-    ):
+    def __init__(self, dataset_cfg=None, class_names=None, training=True, root_path=None, logger=None):
+        """
+        Args:
+            root_path:
+            dataset_cfg:
+            class_names:
+            training:
+            logger:
+        """
         super().__init__(
-            dataset_cfg=dataset_cfg,
-            class_names=class_names,
-            training=training,
-            root_path=root_path,
-            logger=logger,
+            dataset_cfg=dataset_cfg, class_names=class_names, training=training, root_path=root_path, logger=logger
         )
-        if training:
+        self.split = self.dataset_cfg.DATA_SPLIT[self.mode]
+
+        self.custom_infos = []
+        if self.split == 'train':
             with open(os.path.join(str(self.root_path), 'train.pickle'), 'rb') as f:
-                self.annotations = pickle.load(f)
-        else:
+                self.custom_infos = pickle.load(f)
+        elif self.split == 'val':
             with open(os.path.join(str(self.root_path), 'val.pickle'), 'rb') as f:
-                self.annotations = pickle.load(f)
+                self.custom_infos = pickle.load(f)
+        elif self.split == 'test':
+             with open(os.path.join(str(self.root_path), 'val.pickle'), 'rb') as f:
+                self.custom_infos = pickle.load(f)           
+                
+        self.sample_id_list = [i for i,_ in enumerate(self.custom_infos)]
 
-    def __len__(self):
-        return len(self.annotations)
+    def get_label(self, idx):
+        label = self.custom_infos[idx][1]
+        # [N, 8]: (x y z dx dy dz heading_angle category_id)
+        gt_boxes = label['gt_boxes_lidar']
+        gt_names = label['name']
+        return np.array(gt_boxes, dtype=np.float32), np.array(gt_names)
 
-    def __getitem__(self, index):
-        pc_path = os.path.join(str(self.root_path), self.annotations[index][0])
+    def set_split(self, split):
+        super().__init__(
+            dataset_cfg=self.dataset_cfg, class_names=self.class_names, training=self.training,
+            root_path=self.root_path, logger=self.logger
+        )
+        self.split = split
+
+        if self.split == 'train':
+            with open(os.path.join(str(self.root_path), 'train.pickle'), 'rb') as f:
+                self.custom_infos = pickle.load(f)
+        elif self.split == 'val':
+            with open(os.path.join(str(self.root_path), 'val.pickle'), 'rb') as f:
+                self.custom_infos = pickle.load(f)
+        self.sample_id_list = [i for i,_ in enumerate(self.custom_infos)]
+
+    def get_lidar(self, idx):
+        pc_path = os.path.join(str(self.root_path), self.custom_infos[idx][0])
         pointcloud = np.load(pc_path, allow_pickle=True)
         pointcloud = pointcloud['arr_0']
         pointcloud = np.c_[pointcloud[:, 0], pointcloud[:, 1], pointcloud[:, 2], pointcloud[:, 3]/2**16]
+        return pointcloud
+    
+    def __len__(self):
+        if self._merge_all_iters_to_one_epoch:
+            return len(self.sample_id_list) * self.total_epochs
+        return len(self.custom_infos)
+
+    def __getitem__(self, index):
+        if self._merge_all_iters_to_one_epoch:
+            index = index % len(self.custom_infos)
+        pointcloud = self.get_lidar(index)
         get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])
         annotations = self.annotations[index][1]
 
@@ -50,42 +87,146 @@ class AutobaansDataset(DatasetTemplate):
 
         return data_dict
 
-# import glob
+    def get_infos(self, class_names, num_workers=4, has_label=True, sample_id_list=None, num_features=4):
+        import concurrent.futures as futures
 
-# import numpy as np
+        def process_single_scene(sample_idx):
+            print('%s sample_idx: %s' % (self.split, sample_idx))
+            info = {}
+            pc_info = {'num_features': num_features, 'lidar_idx': sample_idx}
+            info['point_cloud'] = pc_info
 
-# from ..dataset import DatasetTemplate
+            if has_label:
+                annotations = {}
+                gt_boxes_lidar, name = self.get_label(sample_idx)
+                annotations['name'] = name
+                annotations['gt_boxes_lidar'] = gt_boxes_lidar[:, :7]
+                info['annos'] = annotations
 
-# class AutobaansDatasetEval(DatasetTemplate):
-#     def __init__(
-#             self,
-#             dataset_cfg=None,
-#             class_names=None,
-#             training=True,
-#             root_path=None,
-#             logger=None,
-#     ):
-#         super().__init__(
-#             dataset_cfg=dataset_cfg,
-#             class_names=class_names,
-#             training=training,
-#             root_path=root_path,
-#             logger=logger,
-#         )
+            return info
 
-#         self.lidar_files = sorted(glob.glob(str(self.root_path) + '/*.npy'))
+        sample_id_list = sample_id_list if sample_id_list is not None else self.sample_id_list
 
-#     def __len__(self):
-#         return len(self.lidar_files)
+        # create a thread pool to improve the velocity
+        with futures.ThreadPoolExecutor(num_workers) as executor:
+            infos = executor.map(process_single_scene, sample_id_list)
+        return list(infos)
 
-#     def __getitem__(self, index):
-#         pointcloud = np.load(self.lidar_files[index], allow_pickle=True)
-#         pointcloud = pointcloud['arr_0']
-#         pointcloud = np.c_[pointcloud[:, 0], pointcloud[:, 1], pointcloud[:, 2], pointcloud[:, 3]/2**16]
-#         get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])
-#         input_dict = {"frame_id": index}
-#         if "points" in get_item_list:
-#             input_dict["points"] = pointcloud
-#         data_dict = self.prepare_data(data_dict=input_dict)
+    def create_groundtruth_database(self, info_path=None, used_classes=None, split='train'):
+        import torch
 
-#         return data_dict
+        database_save_path = Path(self.root_path) / ('gt_database' if split == 'train' else ('gt_database_%s' % split))
+        db_info_save_path = Path(self.root_path) / ('autobaans_dbinfos_%s.pkl' % split)
+
+        database_save_path.mkdir(parents=True, exist_ok=True)
+        all_db_infos = {}
+
+        with open(info_path, 'rb') as f:
+            infos = pickle.load(f)
+
+        for k in range(len(infos)):
+            print('gt_database sample: %d/%d' % (k + 1, len(infos)))
+            info = infos[k]
+            sample_idx = info['point_cloud']['lidar_idx']
+            points = self.get_lidar(sample_idx)
+            annos = info['annos']
+            names = annos['name']
+            gt_boxes = annos['gt_boxes_lidar']
+
+            num_obj = gt_boxes.shape[0]
+            point_indices = roiaware_pool3d_utils.points_in_boxes_cpu(
+                torch.from_numpy(points[:, 0:3]), torch.from_numpy(gt_boxes)
+            ).numpy()  # (nboxes, npoints)
+
+            for i in range(num_obj):
+                filename = '%s_%s_%d.bin' % (sample_idx, names[i], i)
+                filepath = database_save_path / filename
+                gt_points = points[point_indices[i] > 0]
+
+                gt_points[:, :3] -= gt_boxes[i, :3]
+                with open(filepath, 'w') as f:
+                    gt_points.tofile(f)
+
+                if (used_classes is None) or names[i] in used_classes:
+                    db_path = str(filepath.relative_to(self.root_path))  # gt_database/xxxxx.bin
+                    db_info = {'name': names[i], 'path': db_path, 'gt_idx': i,
+                               'box3d_lidar': gt_boxes[i], 'num_points_in_gt': gt_points.shape[0]}
+                    if names[i] in all_db_infos:
+                        all_db_infos[names[i]].append(db_info)
+                    else:
+                        all_db_infos[names[i]] = [db_info]
+
+        # Output the num of all classes in database
+        for k, v in all_db_infos.items():
+            print('Database %s: %d' % (k, len(v)))
+
+        with open(db_info_save_path, 'wb') as f:
+            pickle.dump(all_db_infos, f)
+
+    @staticmethod
+    def create_label_file_with_name_and_box(class_names, gt_names, gt_boxes, save_label_path):
+        with open(save_label_path, 'w') as f:
+            for idx in range(gt_boxes.shape[0]):
+                boxes = gt_boxes[idx]
+                name = gt_names[idx]
+                if name not in class_names:
+                    continue
+                line = "{x} {y} {z} {l} {w} {h} {angle} {name}\n".format(
+                    x=boxes[0], y=boxes[1], z=(boxes[2]), l=boxes[3],
+                    w=boxes[4], h=boxes[5], angle=boxes[6], name=name
+                )
+                f.write(line)
+
+
+def create_custom_infos(dataset_cfg, class_names, data_path, save_path, workers=4):
+    dataset = AutobaansDataset(
+        dataset_cfg=dataset_cfg, class_names=class_names, root_path=data_path,
+        training=False, logger=common_utils.create_logger()
+    )
+    train_split, val_split = 'train', 'val'
+    num_features = len(dataset_cfg.POINT_FEATURE_ENCODING.src_feature_list)
+
+    train_filename = save_path / ('custom_infos_%s.pkl' % train_split)
+    val_filename = save_path / ('custom_infos_%s.pkl' % val_split)
+
+    print('------------------------Start to generate data infos------------------------')
+
+    dataset.set_split(train_split)
+    custom_infos_train = dataset.get_infos(
+        class_names, num_workers=workers, has_label=True, num_features=num_features
+    )
+    with open(train_filename, 'wb') as f:
+        pickle.dump(custom_infos_train, f)
+    print('Custom info train file is saved to %s' % train_filename)
+
+    dataset.set_split(val_split)
+    custom_infos_val = dataset.get_infos(
+        class_names, num_workers=workers, has_label=True, num_features=num_features
+    )
+    with open(val_filename, 'wb') as f:
+        pickle.dump(custom_infos_val, f)
+    print('Custom info train file is saved to %s' % val_filename)
+
+    print('------------------------Start create groundtruth database for data augmentation------------------------')
+    dataset.set_split(train_split)
+    dataset.create_groundtruth_database(train_filename, split=train_split)
+    print('------------------------Data preparation done------------------------')
+
+
+if __name__ == '__main__':
+    import sys
+
+    if sys.argv.__len__() > 1 and sys.argv[1] == 'create_custom_infos':
+        from pathlib import Path
+
+        import yaml
+        from easydict import EasyDict
+
+        dataset_cfg = EasyDict(yaml.safe_load(open(sys.argv[2])))
+        ROOT_DIR = Path('/root/autobaans/3dod/dataset/')
+        create_custom_infos(
+            dataset_cfg=dataset_cfg,
+            class_names=['Medium', 'Large', 'VeryLarge'],
+            data_path=ROOT_DIR,
+            save_path=ROOT_DIR,
+        )
