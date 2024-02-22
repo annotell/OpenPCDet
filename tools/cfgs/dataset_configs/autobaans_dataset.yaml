@@ -1,5 +1,5 @@
 DATASET: 'AutobaansDataset'
-DATA_PATH: '/root/autobaans/3dod/dataset/'
+DATA_PATH: '/root/OpenPCDet/data/autobaans/'
 
 POINT_CLOUD_RANGE: [ -100, -60, -2, 100, 60, 4 ]
 
