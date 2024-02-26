@@ -1,4 +1,4 @@
-CLASS_NAMES: [ 'Medium', 'Large', 'VeryLarge']
+CLASS_NAMES: [ 'PlaceHolder' ] # Need to overwrite this when loading the user provided config
 
 DATA_CONFIG:
   _BASE_CONFIG_: /root/OpenPCDet/tools/cfgs/dataset_configs/autobaans_dataset.yaml
@@ -28,8 +28,8 @@ MODEL:
         NAME: CenterHead
         CLASS_AGNOSTIC: False
         CLASS_NAMES_EACH_HEAD: [
-            ['Medium','Large','VeryLarge']
-        ]
+            ['PlaceHolder']
+        ] # Need to overwrite this when loading the user provided config
         SHARED_CONV_CHANNEL: 64
         USE_BIAS_BEFORE_NORM: True
         NUM_HM_CONV: 3

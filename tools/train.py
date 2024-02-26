@@ -17,6 +17,8 @@ from pcdet.datasets import build_dataloader
 from pcdet.models import build_network, model_fn_decorator
 from pcdet.utils import common_utils
 
+MAP_IDX_CLASS_3DOD = {"0": "Medium", "1": "Large", "2": "VeryLarge"}
+
 
 def parse_config():
     parser = argparse.ArgumentParser(description="arg parser")
@@ -56,7 +58,6 @@ def parse_config():
 
     args = parser.parse_args()
 
-    cfg_from_yaml_file(args.cfg_file, cfg)
     cfg.TAG = Path(args.cfg_file).stem
     cfg.EXP_GROUP_PATH = "/".join(args.cfg_file.split("/")[1:-1])  # remove 'cfgs' and 'xxxx.yaml'
 
@@ -70,6 +71,13 @@ def parse_config():
 
 def main():
     args, cfg = parse_config()
+    # NOTE: we overwrite the class names in the default config in the library with the ones from specified at the top of this file
+    # The user specified mapping should also be uploaded to GS so that we can use for inference
+    cfg.CLASS_NAMES = list(MAP_IDX_CLASS_3DOD.values())
+    # we also overwrite the class names in the dense head with the ones from the config file
+    # NOTE: this is specific for the model voxel_rcnn! Other models might not have this head or have different names
+    cfg.MODEL.DENSE_HEAD.CLASS_NAMES_EACH_HEAD = [cfg.CLASS_NAMES]
+
     if args.launcher == "none":
         dist_train = False
         total_gpus = 1
