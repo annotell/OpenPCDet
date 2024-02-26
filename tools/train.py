@@ -18,6 +18,7 @@ from pcdet.models import build_network, model_fn_decorator
 from pcdet.utils import common_utils
 
 # NOTE: You need to specify the class names for the 3DOD model here
+# NOTE: The names (and number of classes) should match with the class names used when creating the dataset!
 MAP_IDX_CLASS_3DOD = {"0": "Medium", "1": "Large", "2": "VeryLarge"}
 
 
