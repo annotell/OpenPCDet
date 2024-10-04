@@ -78,7 +78,7 @@ class GroupingOperation(Function):
         M, nsample = idx.size()
         N, C = features.size()
         B = idx_batch_cnt.shape[0]
-        output = torch.cuda.FloatTensor(M, C, nsample)
+        output = torch.zeros((M, C, nsample), dtype=torch.float32, device='cuda')
 
         pointnet2.group_points_wrapper(B, M, C, nsample, features, features_batch_cnt, idx, idx_batch_cnt, output)
 
