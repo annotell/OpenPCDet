@@ -1,5 +1,5 @@
 DATASET: 'AutobaansDataset'
-DATA_PATH: '/root/OpenPCDet/data/autobaans/'
+DATA_PATH: '/mnt/bfd/datasets/autobaans/3dod/cosmos_proj_178'
 
 POINT_CLOUD_RANGE: [ -100, -60, -2, 100, 60, 4 ]
 

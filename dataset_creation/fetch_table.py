@@ -1,12 +1,15 @@
+from collections import Counter
 import os
 import time
 import warnings
+import pandas as pd
 import yaml
 from google.cloud import bigquery
 from tqdm import tqdm
 
 warnings.filterwarnings("ignore", "Unable to determine Arrow type")
 warnings.filterwarnings("ignore", "BigQuery Storage module not found")
+warnings.filterwarnings("ignore", "Your application has authenticated using")
 
 
 class FetchTable:
@@ -30,7 +33,7 @@ class FetchTable:
         self.id_list = self.requests if self.requests else self.projects
         self.id_list_name = "request_id" if self.requests else "project_id"
 
-    def create_sql_request(self):
+    def cuboid_query(self):
         sql_query = f"""
         WITH
 
@@ -185,14 +188,29 @@ class FetchTable:
 
         return sql_query
 
-    def copy_config(self, cfg):
-        dataset_folder = os.path.join(cfg["dataset_root"], cfg["dataset_name"])
-        config_path = os.path.join(dataset_folder, "config.yaml")
-        with open("config.yaml", "r") as src, open(config_path, "w") as dst:
-            dst.write(src.read())
+    def lidar_sensor_query(self):
+        sql_query = f"""
+        WITH meta AS (
+            SELECT DISTINCT input_internal_id
+            FROM annotell-com.dbt_staging__api_data.stg_api_data__judgement_overview
+            WHERE {self.id_list_name} IN ({', '.join(map(str, self.id_list))})
+            )
+        SELECT 
+            scene_uuid,
+            COUNT(potree_sensor_id) AS potree_sensor_count
+        FROM 
+            `raw_imports.lidar_sensors` AS lidar
+        JOIN 
+            meta
+        ON 
+            lidar.scene_uuid = meta.input_internal_id
+        GROUP BY 
+            scene_uuid;
+        """
 
-    def get_database_table(self):
-        sql_query = self.create_sql_request()
+        return sql_query
+
+    def get_database_table(self, sql_query, desc):
         # Initialize BigQuery client
         client = bigquery.Client()
         job_config = bigquery.QueryJobConfig(use_query_cache=False)
@@ -205,7 +223,7 @@ class FetchTable:
         # Monitor the job progress
         with tqdm(
             total=100,
-            desc=f"""Fetching data table for {f'project {self.config["projects"]}' if self.config["projects"] else f'request {self.config["requests"]}'}""",
+            desc=desc,
         ) as pbar:
             while True:
                 query_job.reload()  # Refreshes the state via a GET request.
@@ -238,5 +256,71 @@ class FetchTable:
         rows_iter = client.list_rows(destination, page_size=10000)
 
         # Convert the RowIterator to a DataFrame with a progress bar
-        self.datatable = rows_iter.to_dataframe(progress_bar_type="tqdm")
+        datatable = rows_iter.to_dataframe(progress_bar_type="tqdm")
+        return datatable
+
+    def print_stats(self, datatable):
+        """
+        print statistics of the fetched data
+        - number of unique input_internal_id ==> number of unique scenes
+        - number of timestamps (min, max if not equal) ==> average number of sequence frames
+        - total number of timestamps ==> number of sequence frames
+        - number of potree_sensor_count (min, max if not equal) ==> number of lidar sensors
+        - sum of potree_sensor_count ==> number of point clouds
+        - different shape_class count
+        """
+        print("Table head:")
+        print(datatable.head())
+        print(f"Table shape: {datatable.shape}")
+        print(f"Number of unique scenes: {datatable['input_internal_id'].nunique()}")
+        min_seq_frames = datatable["input_n_timestamps"].min()
+        max_seq_frames = datatable["input_n_timestamps"].max()
+        print(
+            "Frames in sequence:",
+            min_seq_frames
+            if min_seq_frames == max_seq_frames
+            else (min_seq_frames, "-", max_seq_frames),
+        )
+        print(
+            f"Total number of sequence frames: {datatable['input_n_timestamps'].sum()}"
+        )
+        min_lidar_sensors = datatable["potree_sensor_count"].min()
+        max_lidar_sensors = datatable["potree_sensor_count"].max()
+        print(
+            f"Number of lidar sensors: {min_lidar_sensors}"
+            if min_lidar_sensors == max_lidar_sensors
+            else f"Number of lidar sensors: {min_lidar_sensors} - {max_lidar_sensors}"
+        )
+        print(f"Number of point clouds: {datatable['potree_sensor_count'].sum()}")
+        # go through geometries and count the number of different shape classes
+        classes = []
+        for geometry in datatable["geometries"]:
+            for shape in geometry:
+                classes.append(shape["shape_class"])
+        class_counts = Counter(classes)
+        df = pd.DataFrame(class_counts.items(), columns=["Class", "Count"])
+        print("Different shape classes:")
+        # Print the table
+        print(df)
+        print("First geometry:")
+        print(datatable["geometries"].iloc[0][0])
+
+    def get_label_resources(self):
+        datatable = self.get_database_table(
+            self.cuboid_query(),
+            f"""Fetching data table for {f'project {self.config["projects"]}' if self.config["projects"] else f'request {self.config["requests"]}'}""",
+        )
+        # print(datatable.head())
+        sensor_table = self.get_database_table(
+            self.lidar_sensor_query(), """Fetching lidar sensors"""
+        )
+        # merge the two tables so that input_internal_id in datatable matches scene_uuid in sensor_table
+        self.datatable = datatable.merge(
+            sensor_table, left_on="input_internal_id", right_on="scene_uuid", how="left"
+        )
         return self.datatable
+
+
+if __name__ == "__main__":
+    fetcher = FetchTable("dataset_creation/config.yaml")
+    fetcher.get_label_resources()

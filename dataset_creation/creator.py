@@ -1,5 +1,5 @@
-from data.dataset_creation.fetch_table import FetchTable
-from data.dataset_creation.download_dataset import DatasetLoader
+from dataset_creation.fetch_table import FetchTable
+from dataset_creation.download_dataset import DatasetLoader
 import pickle
 
 import argparse
@@ -9,7 +9,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         type=str,
-        default="data/dataset_creation/config.yaml",
+        default="dataset_creation/config.yaml",
         help="Path to the config file",
     )
     parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation")
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     skip_confirmation = args.yes
     fetcher = FetchTable(config)
     # if there is a datatable.pkl file, load it
-    datatable_path = f'data/dataset_creation/datatable_{fetcher.id_list_name}_{",".join([str(x) for x in fetcher.id_list])}.pkl'
+    datatable_path = f'dataset_creation/datatable_{fetcher.id_list_name}_{",".join([str(x) for x in fetcher.id_list])}.pkl'
     try:
         with open(
             datatable_path,
@@ -28,11 +28,11 @@ if __name__ == "__main__":
         print(f"Loaded datatable from {datatable_path}")
     except FileNotFoundError:
         print("No pickle found, fetching datatable")
-        datatable = fetcher.get_database_table()
+        datatable = fetcher.get_label_resources()
         with open(datatable_path, "wb") as f:
             pickle.dump(datatable, f)
-    # Display the first few rows
-    print(datatable.head())
+    
+    fetcher.print_stats(datatable)
     if not skip_confirmation:
         proceed = (
             input("\nDo you want to proceed with the data download? (Y/n): ")
