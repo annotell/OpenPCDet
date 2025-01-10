@@ -1,0 +1,44 @@
+/home/andre/config/repos/OpenPCDet/pcdet/utils/loss_utils.py:152: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+  @torch.cuda.amp.custom_fwd(cast_inputs=torch.float16)
+Traceback (most recent call last):
+  File "/home/andre/config/repos/OpenPCDet/tools/train.py", line 361, in <module>
+    main()
+  File "/home/andre/config/repos/OpenPCDet/tools/train.py", line 155, in main
+    logger = common_utils.create_logger(log_file, rank=cfg.LOCAL_RANK)
+  File "/home/andre/config/repos/OpenPCDet/pcdet/utils/common_utils.py", line 114, in create_logger
+    file_handler = logging.FileHandler(filename=log_file)
+  File "/usr/lib/python3.10/logging/__init__.py", line 1169, in __init__
+    StreamHandler.__init__(self, self._open())
+  File "/usr/lib/python3.10/logging/__init__.py", line 1201, in _open
+    return open_func(self.baseFilename, self.mode,
+FileNotFoundError: [Errno 2] No such file or directory: '/root/OpenPCDet/output/cfgs/autobaans_models/voxel_rcnn/default/train_20241217-082250.log'
+E1217 08:22:51.326000 904759 torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 0 (pid: 904795) of binary: /home/andre/config/repos/venv/bin/python3
+Traceback (most recent call last):
+  File "/home/andre/config/repos/venv/bin/torchrun", line 8, in <module>
+    sys.exit(main())
+  File "/home/andre/config/repos/venv/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+  File "/home/andre/config/repos/venv/lib/python3.10/site-packages/torch/distributed/run.py", line 919, in main
+    run(args)
+  File "/home/andre/config/repos/venv/lib/python3.10/site-packages/torch/distributed/run.py", line 910, in run
+    elastic_launch(
+  File "/home/andre/config/repos/venv/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/home/andre/config/repos/venv/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+tools/train.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2024-12-17_08:22:51
+  host      : lambda-dual
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 904795)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

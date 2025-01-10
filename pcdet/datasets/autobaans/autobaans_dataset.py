@@ -3,11 +3,13 @@ import os
 import pickle
 
 import numpy as np
+import torch
 
 from ...ops.roiaware_pool3d import roiaware_pool3d_utils
 from ...utils import common_utils
 from ..dataset import DatasetTemplate
 from scipy.spatial.transform import Rotation
+import sys
 
 
 class AutobaansDataset(DatasetTemplate):
@@ -74,21 +76,81 @@ class AutobaansDataset(DatasetTemplate):
                 self.custom_infos = pickle.load(f)
         self.sample_id_list = [i for i, _ in enumerate(self.custom_infos)]
 
+    def cleanup_resources(self):
+        """Release GPU resources before restarting."""
+        print("Cleaning up resources...")
+        torch.cuda.empty_cache()
+        torch.distributed.destroy_process_group()
+
+    def restart_script(self):
+        """Restarts the current script with the original shell command."""
+        print("Restarting the script...")
+        self.cleanup_resources()
+        # Reconstruct the shell command
+        python = sys.executable
+        command = [
+            python,
+            "-m",
+            "torch.distributed.launch",
+            "--nproc_per_node=2",
+            "train.py",
+            "--launcher",
+            "pytorch",
+            "--cfg_file",
+            "cfgs/autobaans_models/voxel_rcnn.yaml",
+            "--tcp_port",
+            "29500",
+        ]
+        os.execv(python, command)
+
     def get_lidar(self, pc_path):
         try:
             # pc_path = os.path.join(str(self.root_path), self.custom_infos[idx][0])
             pointcloud = np.load(pc_path, allow_pickle=True)
-        except EOFError:
+            pointcloud = pointcloud["arr_0"]
+            pointcloud = np.c_[
+                pointcloud[:, 0],
+                pointcloud[:, 1],
+                pointcloud[:, 2],
+                pointcloud[:, 3] / 2 ** 16,
+            ]
+            return pointcloud
+        except:
             print("Error loading pointcloud from: ", pc_path)
+            # load training data from /mnt/bfd/datasets/autobaans/3dod/cosmos_proj_178/train.pickle
+            train_file = "/mnt/bfd/datasets/autobaans/3dod/cosmos_proj_178/train.pickle"
+            val_file = "/mnt/bfd/datasets/autobaans/3dod/cosmos_proj_178/val.pickle"
+            with open(train_file, "rb") as f:
+                training_data = pickle.load(f)
+            # find the faulty file
+            faulty = pc_path.split("/")[-1].split(".")[0]
+            found_in = ""
+            if faulty in training_data:
+                # remove the faulty file from the training data
+                training_data.remove(faulty)
+                # save the training data
+                with open(train_file, "wb") as f:
+                    pickle.dump(training_data, f)
+                print(faulty, " removed from training data")
+                found_in = "training"
+            else:
+                with open(val_file, "rb") as f:
+                    validation_data = pickle.load(f)
+                if faulty in validation_data:
+                    # remove the faulty file from the validation data
+                    validation_data.remove(faulty)
+                    # save the validation data
+                    with open(val_file, "wb") as f:
+                        pickle.dump(validation_data, f)
+                    print(faulty, " removed from validation data")
+                    found_in = "validation"
+            # open/create a file to log the faulty files
+            with open("faulty_files.log", "a") as f:
+                f.write(faulty + " (" + found_in + ")\n")
+            # restart the script
+            # self.restart_script()
+
             return None
-        pointcloud = pointcloud["arr_0"]
-        pointcloud = np.c_[
-            pointcloud[:, 0],
-            pointcloud[:, 1],
-            pointcloud[:, 2],
-            pointcloud[:, 3] / 2 ** 16,
-        ]
-        return pointcloud
 
     def __len__(self):
         if self._merge_all_iters_to_one_epoch:
@@ -132,18 +194,24 @@ class AutobaansDataset(DatasetTemplate):
         return annotations
 
     def __getitem__(self, index):
-        if self._merge_all_iters_to_one_epoch:
-            index = index % len(self.custom_infos)
+        load_data = True
+        while load_data:
+            load_data = False
+            if self._merge_all_iters_to_one_epoch:
+                index = index % len(self.custom_infos)
 
-        anno_id = self.custom_infos[index]
-        pc_filename = anno_id + ".npy.npz"
-        anno_filename = anno_id + ".pickle"
-        pc_path = os.path.join(str(self.root_path), "pcs", pc_filename)
-        anno_path = os.path.join(str(self.root_path), "annos", anno_filename)
+            anno_id = self.custom_infos[index]
+            pc_filename = anno_id + ".npy.npz"
+            anno_filename = anno_id + ".pickle"
+            pc_path = os.path.join(str(self.root_path), "pcs", pc_filename)
+            anno_path = os.path.join(str(self.root_path), "annos", anno_filename)
 
-        pointcloud = self.get_lidar(pc_path)
-        get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])
-        annotations = self.convert_annotations(anno_path)
+            pointcloud = self.get_lidar(pc_path)
+            get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])
+            annotations = self.convert_annotations(anno_path)
+            if pointcloud is None or annotations is None:
+                index = np.random.randint(0, len(self.custom_infos))
+                load_data = True
 
         input_dict = {"frame_id": index}
         if "points" in get_item_list:
@@ -318,8 +386,6 @@ def create_custom_infos(dataset_cfg, class_names, data_path, save_path, workers=
 
 
 if __name__ == "__main__":
-    import sys
-
     if sys.argv.__len__() > 1 and sys.argv[1] == "create_custom_infos":
         from pathlib import Path
 

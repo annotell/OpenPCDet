@@ -223,13 +223,14 @@ def init_dist_pytorch(tcp_port, local_rank, backend='nccl'):
     num_gpus = torch.cuda.device_count()
     torch.cuda.set_device(local_rank % num_gpus)
     print(f"Process {local_rank} assigned to GPU {torch.cuda.current_device()}")
-
+    
     # Initialize the process group
     dist.init_process_group(
         backend=backend,
         init_method='env://'
     )
     print(f"Process group initialized: rank={dist.get_rank()}, world_size={dist.get_world_size()}")
+    
     
     rank = dist.get_rank()
     return num_gpus, rank

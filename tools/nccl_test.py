@@ -1,12 +1,13 @@
 import torch
-import torch.distributed as dist
+import torchvision
+from torchvision.ops import nms
 
-def main():
-    dist.init_process_group(backend="nccl", init_method="env://")
-    rank = dist.get_rank()
-    print(f"Process {rank} initialized.")
-    dist.barrier()
-    print(f"Process {rank} completed barrier.")
+print("Torch version:", torch.__version__)
+print("Torchvision version:", torchvision.__version__)
 
-if __name__ == "__main__":
-    main()
+# Distributed test
+if torch.cuda.is_available():
+    print("CUDA is available.")
+    print("Torchvision NMS loaded successfully:", nms)
+else:
+    print("CUDA not available.")

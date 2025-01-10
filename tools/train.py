@@ -17,8 +17,8 @@ from pcdet.datasets import build_dataloader
 from pcdet.models import build_network, model_fn_decorator
 from pcdet.utils import common_utils
 
-os.environ["NCCL_DEBUG"] = "INFO"
-os.environ["NCCL_DEBUG_SUBSYS"] = "ALL"
+os.environ["NCCL_DEBUG"] = "WARN"
+os.environ["NCCL_DEBUG_SUBSYS"] = "INIT,COLL"
 
 # NOTE: You need to specify the class names for the 3DOD model here
 # NOTE: The names (and number of classes) should match with the class names used when creating the dataset!
@@ -74,7 +74,7 @@ def parse_config():
         "--ckpt_save_interval", type=int, default=1, help="number of training epochs"
     )
     parser.add_argument(
-        "--local_rank", type=int, default=0, help="local rank for distributed training"
+        "--local-rank", type=int, default=0, help="local rank for distributed training"
     )
     parser.add_argument(
         "--max_ckpt_save_num",
@@ -162,7 +162,9 @@ def main():
             common_utils, "init_dist_%s" % args.launcher
         )(args.tcp_port, args.local_rank, backend="nccl")
         dist_train = True
-        logger.info(f"Process rank: {torch.dist.get_rank()}, local rank: {cfg.LOCAL_RANK}, GPU: {torch.cuda.current_device()}")
+        logger.info(
+            f"Process rank: {torch.distributed.get_rank()}, local rank: {cfg.LOCAL_RANK}, GPU: {torch.cuda.current_device()}"
+        )
 
     if args.batch_size is None:
         args.batch_size = cfg.OPTIMIZATION.BATCH_SIZE_PER_GPU
@@ -188,6 +190,7 @@ def main():
         else "ALL"
     )
     logger.info("CUDA_VISIBLE_DEVICES=%s" % gpu_list)
+    print("CUDA_VISIBLE_DEVICES=%s" % gpu_list)
 
     if dist_train:
         logger.info(
@@ -221,7 +224,7 @@ def main():
         merge_all_iters_to_one_epoch=args.merge_all_iters_to_one_epoch,
         total_epochs=args.epochs,
         seed=666 if args.fix_random_seed else None,
-        root_path='/mnt/bfd/datasets/autobaans/3dod/cosmos_proj_178',
+        root_path="/mnt/bfd/datasets/autobaans/3dod/cosmos_proj_178",
     )
 
     model = build_network(
