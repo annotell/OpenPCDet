@@ -43,6 +43,7 @@ class AutobaansDataset(DatasetTemplate):
             with open(os.path.join(str(self.root_path), "train.pickle"), "rb") as f:
                 self.custom_infos = pickle.load(f)
         elif self.split == "val":
+            print("Val root path: ", str(self.root_path))
             with open(os.path.join(str(self.root_path), "val.pickle"), "rb") as f:
                 self.custom_infos = pickle.load(f)
         elif self.split == "test":

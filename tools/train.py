@@ -224,7 +224,7 @@ def main():
         merge_all_iters_to_one_epoch=args.merge_all_iters_to_one_epoch,
         total_epochs=args.epochs,
         seed=666 if args.fix_random_seed else None,
-        root_path="/mnt/bfd/datasets/autobaans/3dod/cosmos_proj_178",
+        root_path=cfg.DATA_CONFIG.DATA_PATH,
     )
 
     model = build_network(
@@ -338,6 +338,7 @@ def main():
         workers=args.workers,
         logger=logger,
         training=False,
+        root_path=cfg.DATA_CONFIG.DATA_PATH,
     )
     eval_output_dir = output_dir / "eval" / "eval_with_train"
     eval_output_dir.mkdir(parents=True, exist_ok=True)
@@ -345,7 +346,7 @@ def main():
         args.epochs - args.num_epochs_to_eval, 0
     )  # Only evaluate the last args.num_epochs_to_eval epochs
 
-    repeat_eval_ckpt(
+    """repeat_eval_ckpt(
         model.module if dist_train else model,
         test_loader,
         args,
@@ -357,7 +358,7 @@ def main():
     logger.info(
         "**********************End evaluation %s/%s(%s)**********************"
         % (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag)
-    )
+    )"""
 
 
 if __name__ == "__main__":
