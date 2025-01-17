@@ -63,7 +63,7 @@ def all_gather(data):
     origin_size = None
     if not isinstance(data, torch.Tensor):
         buffer = pickle.dumps(data)
-        storage = torch.ByteStorage.from_buffer(buffer)
+        storage = torch.UntypedStorage.from_buffer(buffer, dtype=torch.uint8)
         tensor = torch.ByteTensor(storage).to("cuda")
     else:
         origin_size = data.size()
@@ -85,7 +85,9 @@ def all_gather(data):
     for _ in size_list:
         tensor_list.append(torch.FloatTensor(size=(max_size,)).cuda().to(tensor_type))
     if local_size != max_size:
-        padding = torch.FloatTensor(size=(max_size - local_size,)).cuda().to(tensor_type)
+        padding = (
+            torch.FloatTensor(size=(max_size - local_size,)).cuda().to(tensor_type)
+        )
         tensor = torch.cat((tensor, padding), dim=0)
     dist.all_gather(tensor_list, tensor)
 
@@ -146,7 +148,6 @@ def average_reduce_value(data):
 
 
 def all_reduce(data, op="sum", average=False):
-
     def op_map(op):
         op_dict = {
             "SUM": dist.ReduceOp.SUM,
@@ -161,7 +162,7 @@ def all_reduce(data, op="sum", average=False):
         reduced_data = data.clone()
         dist.all_reduce(reduced_data, op=op_map(op.upper()))
         if average:
-            assert op.upper() == 'SUM'
+            assert op.upper() == "SUM"
             return reduced_data / world_size
         else:
             return reduced_data
@@ -174,8 +175,9 @@ def concat_all_gather(tensor):
     Performs all_gather operation on the provided tensors.
     *** Warning ***: torch.distributed.all_gather has no gradient.
     """
-    tensors_gather = [torch.ones_like(tensor)
-        for _ in range(torch.distributed.get_world_size())]
+    tensors_gather = [
+        torch.ones_like(tensor) for _ in range(torch.distributed.get_world_size())
+    ]
     torch.distributed.all_gather(tensors_gather, tensor, async_op=False)
 
     output = torch.cat(tensors_gather, dim=0)

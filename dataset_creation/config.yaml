@@ -1,0 +1,17 @@
+table: annotell-com.dbt_shapes.shapes_training_cuboid
+projects: [178] # if requests are provided, this will be ignored
+requests: [] #8278 9033 4632
+
+classes:
+  'Vehicle': 0
+  'Pedestrian': 1
+  'VulnerableVehicle': 2
+  'vehicle': 3
+
+dataset_root: '/mnt/bfd/datasets/autobaans/3dod'
+dataset_name: 'cosmos_proj_178' # name of the dataset folder, will create if it does not exist
+max_workers: 8 # number of threads downloading single inputs
+
+create_splits: False
+train_split: 0.9
+filter_pc: True

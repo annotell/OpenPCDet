@@ -1,0 +1,28 @@
+table: annotell-com.dbt_shapes.shapes_training_cuboid
+projects: [] # if requests are provided, this will be ignored
+requests: [9033]
+
+classes:
+   'Vehicle': 0
+   'PassengerCar': 1
+   'LargeVehicle': 2
+   'Bus': 3
+   'Truck': 4
+   'Train': 5
+   'Trailer': 6
+   'CarTrailer': 7
+   'TruckTrailer': 8
+   'SpecialVehicle': 9
+   'AgriculturalVehicle': 10
+   'ConstructionVehicle': 11
+   'Excavator': 12
+   'Forklift': 13
+   'FunVehicle': 14
+   'vehicle': 15
+
+dataset_root: '/mnt/bfd/datasets/autobaans/3dod'
+dataset_name: 'orion_proj_660' # name of the dataset folder, will create if it does not exist
+max_workers: 16 # number of threads downloading single inputs
+
+create_splits: True
+train_split: 0.98
