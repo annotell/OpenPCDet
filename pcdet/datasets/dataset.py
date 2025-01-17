@@ -18,9 +18,7 @@ class DatasetTemplate(torch_data.Dataset):
         self.training = training
         self.class_names = class_names
         self.logger = logger
-        print('given root_path:', root_path)
         self.root_path = root_path if root_path is not None else Path(self.dataset_cfg.DATA_PATH)
-        print('root_path:', self.root_path)
         self.logger = logger
         if self.dataset_cfg is None or class_names is None:
             return
