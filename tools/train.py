@@ -20,16 +20,15 @@ from pcdet.utils import common_utils
 os.environ["NCCL_DEBUG"] = "WARN"
 os.environ["NCCL_DEBUG_SUBSYS"] = "INIT,COLL"
 
-# NOTE: You need to specify the class names for the 3DOD model here
-# NOTE: The names (and number of classes) should match with the class names used when creating the dataset!
-MAP_IDX_CLASS_3DOD = {"0": "Medium", "1": "Large", "2": "VeryLarge"}
-MAP_IDX_CLASS_3DOD = {"0": "Vehicle", "1": "Pedestrian", "2": "VulnerableVehicle"}
-
 
 def parse_config():
     parser = argparse.ArgumentParser(description="arg parser")
     parser.add_argument(
         "--cfg_file", type=str, default=None, help="specify the config for training"
+    )
+
+    parser.add_argument(
+        "--project_cfg", type=str, default=None, help="specify the config for dataset"
     )
 
     parser.add_argument(
@@ -122,6 +121,9 @@ def parse_config():
 
     args = parser.parse_args()
     cfg_from_yaml_file(args.cfg_file, cfg)
+    project_cfg = {}
+    if args.project_cfg is not None:
+        cfg_from_yaml_file(args.project_cfg, project_cfg)
 
     cfg.TAG = Path(args.cfg_file).stem
     cfg.EXP_GROUP_PATH = "/".join(
@@ -133,14 +135,19 @@ def parse_config():
     if args.set_cfgs is not None:
         cfg_from_list(args.set_cfgs, cfg)
 
-    return args, cfg
+    return args, cfg, project_cfg
 
 
 def main():
-    args, cfg = parse_config()
+    args, cfg, project_config = parse_config()
+    class_names = (
+        list(set(project_config.get("adjusted_class_names", {}).values()))
+        if "adjusted_class_names" in project_config.keys()
+        else project_config["classes"].keys()
+    )
     # NOTE: we overwrite the class names in the default config in the library with the ones from specified at the top of this file
     # The user specified mapping should also be uploaded to GS so that we can use for inference
-    cfg.CLASS_NAMES = list(MAP_IDX_CLASS_3DOD.values())
+    cfg.CLASS_NAMES = class_names
     # we also overwrite the class names in the dense head with the ones from the config file
     # NOTE: this is specific for the model voxel_rcnn! Other models might not have this head or have different names
     cfg.MODEL.DENSE_HEAD.CLASS_NAMES_EACH_HEAD = [cfg.CLASS_NAMES]
@@ -169,9 +176,9 @@ def main():
     if args.batch_size is None:
         args.batch_size = cfg.OPTIMIZATION.BATCH_SIZE_PER_GPU
     else:
-        assert (
-            args.batch_size % total_gpus == 0
-        ), "Batch size should match the number of gpus"
+        assert args.batch_size % total_gpus == 0, (
+            "Batch size should match the number of gpus"
+        )
         args.batch_size = args.batch_size // total_gpus
 
     args.epochs = cfg.OPTIMIZATION.NUM_EPOCHS if args.epochs is None else args.epochs
@@ -200,9 +207,9 @@ def main():
     else:
         logger.info("Training with a single process")
 
-    for key, val in vars(args).items():
-        logger.info("{:16} {}".format(key, val))
-    log_config_to_file(cfg, logger=logger)
+    # for key, val in vars(args).items():
+    # logger.info("{:16} {}".format(key, val))
+    # log_config_to_file(cfg, logger=logger)
     if cfg.LOCAL_RANK == 0:
         os.system("cp %s %s" % (args.cfg_file, output_dir))
 
@@ -216,6 +223,7 @@ def main():
     train_set, train_loader, train_sampler = build_dataloader(
         dataset_cfg=cfg.DATA_CONFIG,
         class_names=cfg.CLASS_NAMES,
+        project_config=project_config,
         batch_size=args.batch_size,
         dist=dist_train,
         workers=args.workers,
@@ -224,7 +232,9 @@ def main():
         merge_all_iters_to_one_epoch=args.merge_all_iters_to_one_epoch,
         total_epochs=args.epochs,
         seed=666 if args.fix_random_seed else None,
-        root_path=cfg.DATA_CONFIG.DATA_PATH,
+        root_path=os.path.join(
+            project_config["dataset_root"], project_config["dataset_name"]
+        ),
     )
 
     model = build_network(
@@ -275,7 +285,7 @@ def main():
     logger.info(
         f"----------- Model {cfg.MODEL.NAME} created, param count: {sum([m.numel() for m in model.parameters()])} -----------"
     )
-    logger.info(model)
+    # logger.info(model)
 
     lr_scheduler, lr_warmup_scheduler = build_scheduler(
         optimizer,
@@ -332,13 +342,16 @@ def main():
     )
     test_set, test_loader, sampler = build_dataloader(
         dataset_cfg=cfg.DATA_CONFIG,
+        project_config=project_config,
         class_names=cfg.CLASS_NAMES,
         batch_size=args.batch_size,
         dist=dist_train,
         workers=args.workers,
         logger=logger,
         training=False,
-        root_path=cfg.DATA_CONFIG.DATA_PATH,
+        root_path=os.path.join(
+            project_config["dataset_root"], project_config["dataset_name"]
+        ),
     )
     eval_output_dir = output_dir / "eval" / "eval_with_train"
     eval_output_dir.mkdir(parents=True, exist_ok=True)

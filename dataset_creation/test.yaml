@@ -1,13 +1,18 @@
 table: annotell-com.dbt_shapes.shapes_training_cuboid
 projects: [] # if requests are provided, this will be ignored
-requests: [8278] #8278 9033 4632
+requests: [9451] #8278 9033 4632
 
 classes:
-  'Vehicle': 0
-  'vehicle': 1
+  'Car': 0
+  'Van': 1
+  'Truck': 2
+  'Bus': 3
+  'Motorcycle': 4
+  'Person': 5
+  'Trailer': 6
 
 dataset_root: '/mnt/bfd/datasets/autobaans/3dod'
-dataset_name: 'test2' # name of the dataset folder, will create if it does not exist
+dataset_name: 'req9451' # name of the dataset folder, will create if it does not exist
 max_workers: 8 # number of threads downloading single inputs
 
 create_splits: False

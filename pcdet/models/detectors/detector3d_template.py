@@ -134,9 +134,9 @@ class Detector3DTemplate(nn.Module):
         )
         model_info_dict["module_list"].append(pfe_module)
         model_info_dict["num_point_features"] = pfe_module.num_point_features
-        model_info_dict[
-            "num_point_features_before_fusion"
-        ] = pfe_module.num_point_features_before_fusion
+        model_info_dict["num_point_features_before_fusion"] = (
+            pfe_module.num_point_features_before_fusion
+        )
         return pfe_module, model_info_dict
 
     def build_dense_head(self, model_info_dict):
@@ -397,9 +397,9 @@ class Detector3DTemplate(nn.Module):
                 if val_native.shape == state_dict[key].shape:
                     val = val_native.contiguous()
                 else:
-                    assert (
-                        val.shape.__len__() == 5
-                    ), "currently only spconv 3D is supported"
+                    assert val.shape.__len__() == 5, (
+                        "currently only spconv 3D is supported"
+                    )
                     val_implicit = val.permute(
                         4, 0, 1, 2, 3
                     )  # (k1, k2, k3, c_in, c_out) to (c_out, k1, k2, k3, c_in)
@@ -466,7 +466,7 @@ class Detector3DTemplate(nn.Module):
             % (filename, "CPU" if to_cpu else "GPU")
         )
         loc_type = torch.device("cpu") if to_cpu else None
-        checkpoint = torch.load(filename, map_location=loc_type)
+        checkpoint = torch.load(filename, map_location=loc_type, weights_only=False)
         epoch = checkpoint.get("epoch", -1)
         it = checkpoint.get("it", 0.0)
 
@@ -488,7 +488,7 @@ class Detector3DTemplate(nn.Module):
                 optimizer_filename = "%s_optim.%s" % (src_file, ext)
                 if os.path.exists(optimizer_filename):
                     optimizer_ckpt = torch.load(
-                        optimizer_filename, map_location=loc_type
+                        optimizer_filename, map_location=loc_type, weights_only=False
                     )
                     optimizer.load_state_dict(optimizer_ckpt["optimizer_state"])
 

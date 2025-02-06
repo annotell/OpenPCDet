@@ -57,6 +57,7 @@ class DistributedSampler(_DistributedSampler):
 def build_dataloader(
     dataset_cfg,
     class_names,
+    project_config,
     batch_size,
     dist,
     root_path=None,
@@ -70,6 +71,7 @@ def build_dataloader(
     dataset = __all__[dataset_cfg.DATASET](
         dataset_cfg=dataset_cfg,
         class_names=class_names,
+        project_config=project_config,
         root_path=root_path,
         training=training,
         logger=logger,

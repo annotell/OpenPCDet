@@ -1,3 +1,8 @@
+import sys
+import os
+
+sys.path.append(os.path.abspath("."))  # Adds the project root to PYTHONPATH
+
 from dataset_creation.fetch_table import FetchTable
 from dataset_creation.download_dataset import DatasetLoader
 import pickle
@@ -18,7 +23,7 @@ if __name__ == "__main__":
     skip_confirmation = args.yes
     fetcher = FetchTable(config)
     # if there is a datatable.pkl file, load it
-    datatable_path = f'dataset_creation/datatable_{fetcher.id_list_name}_{",".join([str(x) for x in fetcher.id_list])}.pkl'
+    datatable_path = f"dataset_creation/datatable_{fetcher.id_list_name}_{','.join([str(x) for x in fetcher.id_list])}.pkl"
     try:
         with open(
             datatable_path,
@@ -31,7 +36,7 @@ if __name__ == "__main__":
         datatable = fetcher.get_label_resources()
         with open(datatable_path, "wb") as f:
             pickle.dump(datatable, f)
-    
+
     fetcher.print_stats(datatable)
     if not skip_confirmation:
         proceed = (
