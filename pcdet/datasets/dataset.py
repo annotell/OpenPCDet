@@ -1,4 +1,5 @@
 from collections import defaultdict
+import os
 from pathlib import Path
 
 import numpy as np
@@ -19,17 +20,13 @@ class DatasetTemplate(torch_data.Dataset):
         training=True,
         root_path=None,
         logger=None,
-        project_config=None,
     ):
         super().__init__()
         self.dataset_cfg = dataset_cfg
-        self.project_config = project_config
         self.training = training
         self.class_names = class_names
         self.logger = logger
-        self.root_path = (
-            root_path if root_path is not None else Path(self.dataset_cfg.DATA_PATH)
-        )
+        self.root_path = root_path if root_path is not None else dataset_cfg.DATA_PATH
         self.logger = logger
         if self.dataset_cfg is None or class_names is None:
             return
@@ -224,7 +221,9 @@ class DatasetTemplate(torch_data.Dataset):
             )
             if "calib" in data_dict:
                 data_dict["calib"] = calib
+
         data_dict = self.set_lidar_aug_matrix(data_dict)
+
         if data_dict.get("gt_boxes", None) is not None:
             selected = common_utils.keep_arrays_by_name(
                 data_dict["gt_names"], self.class_names
@@ -383,4 +382,5 @@ class DatasetTemplate(torch_data.Dataset):
                 raise TypeError
 
         ret["batch_size"] = batch_size * batch_size_ratio
+
         return ret

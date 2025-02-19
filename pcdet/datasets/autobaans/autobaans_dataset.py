@@ -20,8 +20,6 @@ class AutobaansDataset(DatasetTemplate):
     def __init__(
         self,
         dataset_cfg=None,
-        class_names=None,
-        project_config=None,
         training=True,
         root_path=None,
         logger=None,
@@ -36,11 +34,10 @@ class AutobaansDataset(DatasetTemplate):
         """
         super().__init__(
             dataset_cfg=dataset_cfg,
-            class_names=class_names,
+            class_names=dataset_cfg.CLASS_NAMES,
             training=training,
             root_path=root_path,
             logger=logger,
-            project_config=project_config,
         )
         self.split = self.dataset_cfg.DATA_SPLIT[self.mode]
 
@@ -83,33 +80,25 @@ class AutobaansDataset(DatasetTemplate):
                 self.custom_infos = pickle.load(f)
         self.sample_id_list = [i for i, _ in enumerate(self.custom_infos)]
 
-    def cleanup_resources(self):
-        """Release GPU resources before restarting."""
-        print("Cleaning up resources...")
-        torch.cuda.empty_cache()
-        torch.distributed.destroy_process_group()
-
     def get_lidar(self, pc_path):
-        # try:
-        with np.load(
-            pc_path, allow_pickle=True, mmap_mode="r"
-        ) as data:  # Use "with" to auto-close
-            pointcloud = data["arr_0"]
-        pointcloud = np.c_[
-            pointcloud[:, 0],
-            pointcloud[:, 1],
-            pointcloud[:, 2],
-            pointcloud[:, 3] / 2**16,
-        ]
-        self.lidars_loaded += 1
-        print("Lidars loaded:", self.lidars_loaded)
-        return pointcloud
-        """except Exception as e:
+        try:
+            with np.load(
+                pc_path, allow_pickle=True, mmap_mode="r"
+            ) as data:  # Use "with" to auto-close
+                pointcloud = data["arr_0"]
+            pointcloud = np.c_[
+                pointcloud[:, 0],
+                pointcloud[:, 1],
+                pointcloud[:, 2],
+                pointcloud[:, 3] / 2**16,
+            ]
+            self.lidars_loaded += 1
+            # print("Lidars loaded:", self.lidars_loaded)
+            return pointcloud
+        except Exception as e:
             print("Error loading pointcloud from: ", pc_path, "ERR:", e)
-            print("Lidars loaded:", self.lidars_loaded)
-            # exit
-            exit()
-            return None"""
+            # print("Lidars loaded:", self.lidars_loaded)
+            return None
 
     def __len__(self):
         if self._merge_all_iters_to_one_epoch:
@@ -117,7 +106,7 @@ class AutobaansDataset(DatasetTemplate):
         return len(self.custom_infos)
 
     def convert_class_name(self, name):
-        return self.project_config["adjusted_class_names"][name]
+        return self.dataset_cfg.CLASS_ADJUSTMENT.get(name, name)
 
     def convert_annotations(self, path):
         try:
@@ -130,7 +119,7 @@ class AutobaansDataset(DatasetTemplate):
 
         for i in range(0, len(judgement)):
             curr_obj = judgement[i]
-            obj_class = curr_obj["class"]
+            obj_class = self.dataset_cfg["CLASS_ADJUSTMENTS"][curr_obj["class"]]
             coordinates = curr_obj["coordinates"]
             wid, le, hei = curr_obj["scale"]
             rotation = Rotation.from_quat(curr_obj["rotation"]).as_euler("xyz")[2]
@@ -174,7 +163,6 @@ class AutobaansDataset(DatasetTemplate):
             if pointcloud is None or annotations is None:
                 index = np.random.randint(0, len(self.custom_infos))
                 load_data = True
-            print("Reload? ", load_data)
             gc.collect()
 
         input_dict = {"frame_id": index}
