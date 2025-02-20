@@ -29,25 +29,36 @@ LIDAR_INFO = {}
 
 
 class DatasetLoader:
-    def __init__(self, config):
-        self.config_path = config
-        self.scene = SceneInputApiClient(env="production")
-        with open(config) as file:
-            self.config = yaml.load(file, Loader=yaml.FullLoader)
-        self.save_dir = os.path.join(
-            self.config["dataset_root"], self.config["dataset_name"]
-        )
+    def __init__(self, config=None, save_dir=None, filter_pc=False):
+        if config is not None:
+            self.config_path = config
+            self.scene = SceneInputApiClient(env="production")
+            with open(config) as file:
+                self.config = yaml.load(file, Loader=yaml.FullLoader)
+            self.save_dir = os.path.join(
+                self.config["dataset_root"], self.config["dataset_name"]
+            )
+            self.filter_pc = self.config.get("filter_pc", False)
+        else:
+            if save_dir is None:
+                raise ValueError("save_dir must be provided if config is not provided")
+            self.save_dir = save_dir
+            self.filter_pc = filter_pc
         self.save_dir_pcs = os.path.join(self.save_dir, "pcs")
         self.save_dir_annos = os.path.join(self.save_dir, "annos")
-        self.old_save_dir_pcs = os.path.join(self.save_dir, "pcs_old")
-        self.old_save_dir_annos = os.path.join(self.save_dir, "annos_old")
-        self.filter_pc = self.config.get("filter_pc", False)
         self.count = 0
-        self.pc_time = 0
-        self.pc_transform_time = 0
-        self.cuboid_time = 0
-        self.save_time = 0
         self.start_time = time.time()
+        # fetch all files in the dirs
+        self.existing_pcs = glob.glob(self.save_dir_pcs + "/*.npz")
+        self.existing_annos = glob.glob(self.save_dir_annos + "/*.pickle")
+        # truncate at the second _
+        self.existing_pcs = [
+            "_".join(os.path.basename(pc).split("_")[:2]) for pc in self.existing_pcs
+        ]
+        self.existing_annos = [
+            "_".join(os.path.basename(anno).split("_")[:2])
+            for anno in self.existing_annos
+        ]
 
     def filter_pc_single(self, pc, camera_projectors, lidar_projector):
         idxes_all = []
@@ -132,31 +143,6 @@ class DatasetLoader:
                     f"Failed to read point cloud from fid: {file_id}"
                 ) from e
 
-    def handle_old_pcs(self, filename, is_multilidar):
-        # move old files to old folder
-        old_file_path = os.path.join(self.old_save_dir_pcs, f"{filename}.npy.npz")
-        os.rename(os.path.join(self.save_dir_pcs, f"{filename}.npy.npz"), old_file_path)
-        # load old file
-        pc = np.load(old_file_path)["arr_0"]
-        if is_multilidar:
-            # separate into multiple pcs based on the source_id in the fifth column
-            for source_id in np.unique(pc[:, 4]):
-                sensor_pc = pc[pc[:, 4] == source_id]
-                # remove sensor_id column
-                sensor_pc = sensor_pc[:, :4]
-                # save new pcs
-                new_filename = (
-                    f"{filename}_{int(source_id) if source_id is not None else None}"
-                )
-                np.savez_compressed(
-                    os.path.join(self.save_dir_pcs, f"{new_filename}.npy"), sensor_pc
-                )
-        else:
-            np.savez_compressed(
-                os.path.join(self.save_dir_pcs, f"{filename}_None.npy"), pc
-            )
-        return True
-
     def pc_split_and_save(self, pc, filename, is_multilidar):
         try:
             if is_multilidar:
@@ -180,15 +166,6 @@ class DatasetLoader:
             return False
         return True
 
-    def wildcard_file_exists(self, filename, file_list):
-        """
-        Takes a list (self.existing_pcs or self.existing_annos) and checks if a file with the same prefix as filename exists.
-        """
-        for file in file_list:
-            if file.startswith(filename+'_'):
-                return True
-        return False
-
     def download_single_input(self, item):
         judgement_id, data = item
         input_internal_id = data["input_internal_id"]
@@ -196,23 +173,8 @@ class DatasetLoader:
         for timestamp in data["timestamps"].keys():
             resource_id = data["timestamps"][timestamp]["resource_id"]
             filename = f"{judgement_id}_{timestamp}"
-
-            pc_exists = self.wildcard_file_exists(filename, self.existing_pcs)
-            old_pc_exists = os.path.exists(
-                os.path.join(self.save_dir_pcs, f"{filename}.npy.npz")
-            )
-            anno_exists = self.wildcard_file_exists(filename, self.existing_annos)
-            old_anno_exists = os.path.exists(
-                os.path.join(self.save_dir_annos, f"{filename}.pickle")
-            )
-            if old_anno_exists:
-                # move old files to old folder
-                os.rename(
-                    os.path.join(self.save_dir_annos, f"{filename}.pickle"),
-                    os.path.join(self.old_save_dir_annos, f"{filename}.pickle"),
-                )
-            if not pc_exists and old_pc_exists:
-                pc_exists = self.handle_old_pcs(filename, is_multilidar)
+            pc_exists = filename in self.existing_pcs
+            anno_exists = filename in self.existing_annos
 
             if pc_exists and anno_exists:
                 continue
@@ -422,18 +384,14 @@ class DatasetLoader:
                 "timestamps", {}
             ).setdefault(timestamp, {}).setdefault("sensors", {}).setdefault(
                 primarySensor, {}
-            ).setdefault(
-                shape_class, {}
-            ).setdefault(
-                shape_id, {}
-            )[
+            ).setdefault(shape_class, {}).setdefault(shape_id, {})[
                 "geometry"
             ] = geometry
 
             to_download[judgement_id]["input_internal_id"] = input_internal_id
-            to_download[judgement_id]["timestamps"][timestamp][
-                "resource_id"
-            ] = resource_id
+            to_download[judgement_id]["timestamps"][timestamp]["resource_id"] = (
+                resource_id
+            )
             to_download[judgement_id]["is_multilidar"] = is_multilidar
         return to_download
 
@@ -465,17 +423,6 @@ class DatasetLoader:
         os.makedirs(self.save_dir, exist_ok=True)
         os.makedirs(self.save_dir_pcs, exist_ok=True)
         os.makedirs(self.save_dir_annos, exist_ok=True)
-        os.makedirs(self.old_save_dir_pcs, exist_ok=True)
-        os.makedirs(self.old_save_dir_annos, exist_ok=True)
-        # load all filenames in the pcs folder to self.existing_pcs
-        self.existing_pcs = [
-            os.path.basename(x).replace(".npy", "").replace(".npz", "")
-            for x in glob.glob(self.save_dir_pcs + "/*.npz")
-        ]
-        self.existing_annos = [
-            os.path.basename(x).replace(".pickle", "")
-            for x in glob.glob(self.save_dir_annos + "/*.pickle")
-        ]
         # sort the cuboids into judgement_id, timestamp, and sensor_name
         with ThreadPoolExecutor(max_workers=20) as executor:
             results = list(

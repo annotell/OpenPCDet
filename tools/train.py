@@ -4,6 +4,7 @@ import glob
 import os
 from pathlib import Path
 from test import repeat_eval_ckpt
+import yaml
 
 import _init_path
 import torch
@@ -17,19 +18,35 @@ from pcdet.datasets import build_dataloader
 from pcdet.models import build_network, model_fn_decorator
 from pcdet.utils import common_utils
 
+from easydict import EasyDict
+
+
+def edict_representer(dumper, data):
+    return dumper.represent_dict(data)
+
+
+yaml.add_representer(EasyDict, edict_representer)
+
 os.environ["NCCL_DEBUG"] = "WARN"
 os.environ["NCCL_DEBUG_SUBSYS"] = "INIT,COLL"
-
-# NOTE: You need to specify the class names for the 3DOD model here
-# NOTE: The names (and number of classes) should match with the class names used when creating the dataset!
-MAP_IDX_CLASS_3DOD = {"0": "Medium", "1": "Large", "2": "VeryLarge"}
-MAP_IDX_CLASS_3DOD = {"0": "Vehicle", "1": "Pedestrian", "2": "VulnerableVehicle"}
 
 
 def parse_config():
     parser = argparse.ArgumentParser(description="arg parser")
     parser.add_argument(
-        "--cfg_file", type=str, default=None, help="specify the config for training"
+        "--model_cfg",
+        type=str,
+        default=None,
+        help="specify the config for training",
+        required=True,
+    )
+
+    parser.add_argument(
+        "--dataset_cfg",
+        type=str,
+        default=None,
+        help="specify the config for dataset",
+        required=True,
     )
 
     parser.add_argument(
@@ -121,11 +138,13 @@ def parse_config():
     )
 
     args = parser.parse_args()
-    cfg_from_yaml_file(args.cfg_file, cfg)
+    cfg_from_yaml_file(args.model_cfg, cfg)
+    dataset_cfg = {}
+    cfg_from_yaml_file(args.dataset_cfg, dataset_cfg)
 
-    cfg.TAG = Path(args.cfg_file).stem
+    cfg.TAG = Path(args.model_cfg).stem
     cfg.EXP_GROUP_PATH = "/".join(
-        args.cfg_file.split("/")[1:-1]
+        args.model_cfg.split("/")[1:-1]
     )  # remove 'cfgs' and 'xxxx.yaml'
 
     args.use_amp = args.use_amp or cfg.OPTIMIZATION.get("USE_AMP", False)
@@ -133,21 +152,65 @@ def parse_config():
     if args.set_cfgs is not None:
         cfg_from_list(args.set_cfgs, cfg)
 
-    return args, cfg
+    return args, cfg, dataset_cfg
+
+
+def define_classes_ux(model_cfg, dataset_cfg, output_dir):
+    classes = dataset_cfg["classes"]
+    print("Classes in the dataset: ", classes)
+    if "CLASS_ADJUSTMENTS" in model_cfg.keys():
+        new_classes = []
+        class_adjustments = model_cfg["CLASS_ADJUSTMENTS"]
+        for c in class_adjustments.keys():
+            if c in classes and class_adjustments[c] not in new_classes:
+                new_classes.append(class_adjustments[c])
+        print("Adjusted classes: ", new_classes)
+    else:
+        model_cfg["CLASS_ADJUSTMENTS"] = {}
+    res = input("Do you want to adjust the class names? (y/N): ")
+    if res.lower() == "y":
+        adjuster = {}
+        merged_classes = classes.extend(new_classes)
+        main_classes = input(
+            "Enter the main classes for training separated by commas: "
+        ).split(",")
+        print(f"{i}: {c}\n" for i, c in enumerate(merged_classes))
+        for c in main_classes:
+            batch = input(
+                f"Enter the classes to merge to {c} separated by commas: "
+            ).split(",")
+            for b in batch:
+                adjuster[b] = c
+        model_cfg["CLASS_ADJUSTMENTS"] = adjuster
+        model_cfg["CLASS_NAMES"] = main_classes
+    else:
+        model_cfg["CLASS_NAMES"] = new_classes if new_classes else classes
+    # we also overwrite the class names in the dense head with the ones from the config file
+    # NOTE: this is specific for the model voxel_rcnn! Other models might not have this head or have different names
+    model_cfg.MODEL.DENSE_HEAD.CLASS_NAMES_EACH_HEAD = [cfg.CLASS_NAMES]
+    # save model config to checkpoint directory
+    cfg_file = (
+        output_dir
+        / "ckpt"
+        / f"{dataset_cfg['dataset_name']}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.yaml"
+    )
+    with open(
+        cfg_file,
+        "w",
+    ) as f:
+        yaml.dump(model_cfg, f, default_flow_style=False)
+    return model_cfg
 
 
 def main():
-    args, cfg = parse_config()
-    # NOTE: we overwrite the class names in the default config in the library with the ones from specified at the top of this file
-    # The user specified mapping should also be uploaded to GS so that we can use for inference
-    cfg.CLASS_NAMES = list(MAP_IDX_CLASS_3DOD.values())
-    # we also overwrite the class names in the dense head with the ones from the config file
-    # NOTE: this is specific for the model voxel_rcnn! Other models might not have this head or have different names
-    cfg.MODEL.DENSE_HEAD.CLASS_NAMES_EACH_HEAD = [cfg.CLASS_NAMES]
-
+    args, cfg, dataset_cfg = parse_config()
+    cfg["DATA_PATH"] = os.path.join(
+        dataset_cfg["dataset_root"], dataset_cfg["dataset_name"]
+    )
     output_dir = (
         Path("/root/OpenPCDet/output") / cfg.EXP_GROUP_PATH / cfg.TAG / args.extra_tag
     )
+    cfg = define_classes_ux(cfg, dataset_cfg, output_dir)
 
     log_file = output_dir / (
         "train_%s.log" % datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -169,9 +232,9 @@ def main():
     if args.batch_size is None:
         args.batch_size = cfg.OPTIMIZATION.BATCH_SIZE_PER_GPU
     else:
-        assert (
-            args.batch_size % total_gpus == 0
-        ), "Batch size should match the number of gpus"
+        assert args.batch_size % total_gpus == 0, (
+            "Batch size should match the number of gpus"
+        )
         args.batch_size = args.batch_size // total_gpus
 
     args.epochs = cfg.OPTIMIZATION.NUM_EPOCHS if args.epochs is None else args.epochs
@@ -200,11 +263,11 @@ def main():
     else:
         logger.info("Training with a single process")
 
-    for key, val in vars(args).items():
-        logger.info("{:16} {}".format(key, val))
-    log_config_to_file(cfg, logger=logger)
+    # for key, val in vars(args).items():
+    # logger.info("{:16} {}".format(key, val))
+    # log_config_to_file(cfg, logger=logger)
     if cfg.LOCAL_RANK == 0:
-        os.system("cp %s %s" % (args.cfg_file, output_dir))
+        os.system("cp %s %s" % (args.model_cfg, output_dir))
 
     tb_log = (
         SummaryWriter(log_dir=str(output_dir / "tensorboard"))
@@ -214,8 +277,7 @@ def main():
 
     logger.info("----------- Create dataloader & network & optimizer -----------")
     train_set, train_loader, train_sampler = build_dataloader(
-        dataset_cfg=cfg.DATA_CONFIG,
-        class_names=cfg.CLASS_NAMES,
+        dataset_cfg=cfg,
         batch_size=args.batch_size,
         dist=dist_train,
         workers=args.workers,
@@ -224,7 +286,6 @@ def main():
         merge_all_iters_to_one_epoch=args.merge_all_iters_to_one_epoch,
         total_epochs=args.epochs,
         seed=666 if args.fix_random_seed else None,
-        root_path=cfg.DATA_CONFIG.DATA_PATH,
     )
 
     model = build_network(
@@ -275,7 +336,7 @@ def main():
     logger.info(
         f"----------- Model {cfg.MODEL.NAME} created, param count: {sum([m.numel() for m in model.parameters()])} -----------"
     )
-    logger.info(model)
+    # logger.info(model)
 
     lr_scheduler, lr_warmup_scheduler = build_scheduler(
         optimizer,
@@ -325,20 +386,18 @@ def main():
         "**********************End training %s/%s(%s)**********************\n\n\n"
         % (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag)
     )
-
+    """
     logger.info(
         "**********************Start evaluation %s/%s(%s)**********************"
         % (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag)
     )
     test_set, test_loader, sampler = build_dataloader(
         dataset_cfg=cfg.DATA_CONFIG,
-        class_names=cfg.CLASS_NAMES,
         batch_size=args.batch_size,
         dist=dist_train,
         workers=args.workers,
         logger=logger,
         training=False,
-        root_path=cfg.DATA_CONFIG.DATA_PATH,
     )
     eval_output_dir = output_dir / "eval" / "eval_with_train"
     eval_output_dir.mkdir(parents=True, exist_ok=True)
@@ -346,7 +405,7 @@ def main():
         args.epochs - args.num_epochs_to_eval, 0
     )  # Only evaluate the last args.num_epochs_to_eval epochs
 
-    """repeat_eval_ckpt(
+    repeat_eval_ckpt(
         model.module if dist_train else model,
         test_loader,
         args,
@@ -359,6 +418,7 @@ def main():
         "**********************End evaluation %s/%s(%s)**********************"
         % (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag)
     )"""
+    print(f"Training finished. Checkpoints and config saved in {output_dir}")
 
 
 if __name__ == "__main__":

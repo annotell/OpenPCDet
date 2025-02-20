@@ -55,6 +55,7 @@ class Splitter:
             f"Validation set: {len(val_annos)} samples saved to",
             os.path.join(self.save_dir, "val.pickle"),
         )
+        print("Invalid point clouds removed: ", len(valids) - len(annos))
 
     def valid_pc(self, pc_path):
         try:
@@ -83,51 +84,4 @@ if __name__ == "__main__":
     config = args.config
     skip_confirmation = args.yes
     splitter = Splitter(config)
-    # splitter.split_dataset()
-    # load train.pickle
-    with open(os.path.join(splitter.save_dir, "train.pickle"), "rb") as f:
-        train_annos = pickle.load(f)
-    # validate point clouds
-    """train_annos = ["9858336_None_None"]
-    with ThreadPoolExecutor(40) as executor:
-        valids = list(
-            tqdm(
-                executor.map(
-                    splitter.valid_pc,
-                    [
-                        os.path.join(splitter.save_dir_pcs, x + ".npy.npz")
-                        for x in train_annos
-                    ],
-                ),
-                desc="Validating point clouds",
-                total=len(train_annos),
-            )
-        )
-    print("Invalid point clouds: ")
-    for anno, valid in zip(train_annos, valids):
-        if not valid:
-            print(anno)
-    print("Valid point clouds: ", sum(valids), " / ", len(train_annos))
-    wait = input("Save valid point clouds to train.pickle? (Y/n): ")
-    if wait.lower() in ["y", "yes", ""]:
-        train_annos = [anno for anno, valid in zip(train_annos, valids) if valid]
-        with open(os.path.join(splitter.save_dir, "train.pickle"), "wb") as f:
-            pickle.dump(train_annos, f)
-        print(
-            f"Train set: {len(train_annos)} samples saved to",
-            os.path.join(splitter.save_dir, "train.pickle"),
-        )"""
-    file_to_remove = "9858336_None_None"
-    # confirm if file_to_remove is in train_annos
-    if file_to_remove not in train_annos:
-        print(f"{file_to_remove} not in train set")
-    else:
-        print(f"{file_to_remove} found in train set")
-    # remove 6621537_None_None from train_annos and save it
-    train_annos.remove(file_to_remove)
-    with open(os.path.join(splitter.save_dir, "train.pickle"), "wb") as f:
-        pickle.dump(train_annos, f)
-        print(
-            f"Train set: {len(train_annos)} samples saved to",
-            os.path.join(splitter.save_dir, "train.pickle"),
-        )
+    splitter.split_dataset()

@@ -1,17 +1,6 @@
-CLASS_NAMES: [ 'PLACEHOLDER' ] # Need to overwrite this when loading the user provided config
+CLASS_NAMES: [ 'Vehicle','Pedestrian','VulnerableVehicle' ] # Need to overwrite this when loading the user provided config
 
-CLASS_ADJUSTMENTS:
-  'Car': 'Vehicle'
-  'Van': 'Vehicle'
-  'Truck': 'Vehicle'
-  'Bus': 'Vehicle'
-  'Motorbike': 'VulnerableVehicle'
-  'Person': 'Pedestrian'
-  'Trailer': 'Vehicle'
-
-DATA_PATH: 'PLACEHOLDER'
-
-DATASET: AutobaansDataset
+DATA_PATH: '/mnt/bfd/datasets/autobaans/3dod/cosmos_proj_178'
 
 POINT_CLOUD_RANGE: [ -100, -60, -2, 100, 60, 4 ]
 
@@ -227,7 +216,7 @@ MODEL:
 
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 5
-    NUM_EPOCHS: 35
+    NUM_EPOCHS: 25
 
     OPTIMIZER: adam_onecycle
     LR: 0.000025

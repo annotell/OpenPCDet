@@ -108,7 +108,7 @@ class WeightedSmoothL1Loss(nn.Module):
             loss = torch.abs(diff)
         else:
             n = torch.abs(diff)
-            loss = torch.where(n < beta, 0.5 * n ** 2 / beta, n - 0.5 * beta)
+            loss = torch.where(n < beta, 0.5 * n**2 / beta, n - 0.5 * beta)
 
         return loss
 
@@ -571,7 +571,7 @@ class IouRegLossSparse(nn.Module):
         )
         outer_h = torch.clamp(outer_h, min=0)
         outer = torch.clamp((out_max_xy - out_min_xy), min=0)
-        outer_diag = outer[:, 0] ** 2 + outer[:, 1] ** 2 + outer_h ** 2
+        outer_diag = outer[:, 0] ** 2 + outer[:, 1] ** 2 + outer_h**2
 
         dious = volume_inter / volume_union - inter_diag / outer_diag
         dious = torch.clamp(dious, min=-1.0, max=1.0)
@@ -661,8 +661,19 @@ def calculate_iou_loss_centerhead(iou_preds, batch_box_preds, mask, ind, gt_boxe
     )
     # iou_target = iou3d_nms_utils.boxes_iou3d_gpu(selected_box_preds[:, 0:7].clone(), gt_boxes[mask][:, 0:7].clone()).diag()
     iou_target = iou_target * 2 - 1  # [0, 1] ==> [-1, 1]
+    """before_preds = selected_iou_preds.shape
+    before_target = iou_target.shape
+    # Get correct minimum size
+    min_size = min(selected_iou_preds.numel(), iou_target.numel())
 
-    # print(selected_iou_preds.view(-1), iou_target)
+    # Fix indexing if necessary
+    selected_iou_preds = selected_iou_preds.view(-1)[:min_size]
+    iou_target = iou_target[:min_size]
+
+    print(
+        f"Preds: {before_preds} --> {selected_iou_preds.shape} ; Target: {before_target} --> {iou_target.shape}"
+    )
+    assert selected_iou_preds.numel() == iou_target.numel(), "Final mismatch persists!"""
     loss = F.l1_loss(selected_iou_preds.view(-1), iou_target, reduction="sum")
     loss = loss / torch.clamp(mask.sum(), min=1e-4)
     return loss

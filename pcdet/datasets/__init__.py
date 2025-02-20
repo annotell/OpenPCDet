@@ -7,6 +7,7 @@ from torch.utils.data import DistributedSampler as _DistributedSampler
 from pcdet.utils import common_utils
 
 from .autobaans.autobaans_dataset import AutobaansDataset
+from torch.utils.data.dataloader import default_collate
 
 # from .argo2.argo2_dataset import Argo2Dataset
 from .custom.custom_dataset import CustomDataset
@@ -56,7 +57,6 @@ class DistributedSampler(_DistributedSampler):
 
 def build_dataloader(
     dataset_cfg,
-    class_names,
     batch_size,
     dist,
     root_path=None,
@@ -69,7 +69,6 @@ def build_dataloader(
 ):
     dataset = __all__[dataset_cfg.DATASET](
         dataset_cfg=dataset_cfg,
-        class_names=class_names,
         root_path=root_path,
         training=training,
         logger=logger,

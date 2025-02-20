@@ -1,6 +1,8 @@
 import copy
+import gc
 import os
 import pickle
+import traceback
 
 import numpy as np
 import torch
@@ -13,10 +15,11 @@ import sys
 
 
 class AutobaansDataset(DatasetTemplate):
+    lidars_loaded = 0
+
     def __init__(
         self,
         dataset_cfg=None,
-        class_names=None,
         training=True,
         root_path=None,
         logger=None,
@@ -31,7 +34,7 @@ class AutobaansDataset(DatasetTemplate):
         """
         super().__init__(
             dataset_cfg=dataset_cfg,
-            class_names=class_names,
+            class_names=dataset_cfg.CLASS_NAMES,
             training=training,
             root_path=root_path,
             logger=logger,
@@ -77,86 +80,33 @@ class AutobaansDataset(DatasetTemplate):
                 self.custom_infos = pickle.load(f)
         self.sample_id_list = [i for i, _ in enumerate(self.custom_infos)]
 
-    def cleanup_resources(self):
-        """Release GPU resources before restarting."""
-        print("Cleaning up resources...")
-        torch.cuda.empty_cache()
-        torch.distributed.destroy_process_group()
-
-    def restart_script(self):
-        """Restarts the current script with the original shell command."""
-        print("Restarting the script...")
-        self.cleanup_resources()
-        # Reconstruct the shell command
-        python = sys.executable
-        command = [
-            python,
-            "-m",
-            "torch.distributed.launch",
-            "--nproc_per_node=2",
-            "train.py",
-            "--launcher",
-            "pytorch",
-            "--cfg_file",
-            "cfgs/autobaans_models/voxel_rcnn.yaml",
-            "--tcp_port",
-            "29500",
-        ]
-        os.execv(python, command)
-
     def get_lidar(self, pc_path):
         try:
-            # pc_path = os.path.join(str(self.root_path), self.custom_infos[idx][0])
-            pointcloud = np.load(pc_path, allow_pickle=True)
-            pointcloud = pointcloud["arr_0"]
+            with np.load(
+                pc_path, allow_pickle=True, mmap_mode="r"
+            ) as data:  # Use "with" to auto-close
+                pointcloud = data["arr_0"]
             pointcloud = np.c_[
                 pointcloud[:, 0],
                 pointcloud[:, 1],
                 pointcloud[:, 2],
-                pointcloud[:, 3] / 2 ** 16,
+                pointcloud[:, 3] / 2**16,
             ]
+            self.lidars_loaded += 1
+            # print("Lidars loaded:", self.lidars_loaded)
             return pointcloud
-        except:
-            print("Error loading pointcloud from: ", pc_path)
-            # load training data from /mnt/bfd/datasets/autobaans/3dod/cosmos_proj_178/train.pickle
-            train_file = "/mnt/bfd/datasets/autobaans/3dod/cosmos_proj_178/train.pickle"
-            val_file = "/mnt/bfd/datasets/autobaans/3dod/cosmos_proj_178/val.pickle"
-            with open(train_file, "rb") as f:
-                training_data = pickle.load(f)
-            # find the faulty file
-            faulty = pc_path.split("/")[-1].split(".")[0]
-            found_in = ""
-            if faulty in training_data:
-                # remove the faulty file from the training data
-                training_data.remove(faulty)
-                # save the training data
-                with open(train_file, "wb") as f:
-                    pickle.dump(training_data, f)
-                print(faulty, " removed from training data")
-                found_in = "training"
-            else:
-                with open(val_file, "rb") as f:
-                    validation_data = pickle.load(f)
-                if faulty in validation_data:
-                    # remove the faulty file from the validation data
-                    validation_data.remove(faulty)
-                    # save the validation data
-                    with open(val_file, "wb") as f:
-                        pickle.dump(validation_data, f)
-                    print(faulty, " removed from validation data")
-                    found_in = "validation"
-            # open/create a file to log the faulty files
-            with open("faulty_files.log", "a") as f:
-                f.write(faulty + " (" + found_in + ")\n")
-            # restart the script
-            # self.restart_script()
-
+        except Exception as e:
+            print("Error loading pointcloud from: ", pc_path, "ERR:", e)
+            # print("Lidars loaded:", self.lidars_loaded)
             return None
 
     def __len__(self):
         if self._merge_all_iters_to_one_epoch:
             return len(self.sample_id_list) * self.total_epochs
         return len(self.custom_infos)
+
+    def convert_class_name(self, name):
+        return self.dataset_cfg.CLASS_ADJUSTMENT.get(name, name)
 
     def convert_annotations(self, path):
         try:
@@ -169,7 +119,7 @@ class AutobaansDataset(DatasetTemplate):
 
         for i in range(0, len(judgement)):
             curr_obj = judgement[i]
-            obj_class = curr_obj["class"]
+            obj_class = self.dataset_cfg["CLASS_ADJUSTMENTS"][curr_obj["class"]]
             coordinates = curr_obj["coordinates"]
             wid, le, hei = curr_obj["scale"]
             rotation = Rotation.from_quat(curr_obj["rotation"]).as_euler("xyz")[2]
@@ -213,6 +163,7 @@ class AutobaansDataset(DatasetTemplate):
             if pointcloud is None or annotations is None:
                 index = np.random.randint(0, len(self.custom_infos))
                 load_data = True
+            gc.collect()
 
         input_dict = {"frame_id": index}
         if "points" in get_item_list:
