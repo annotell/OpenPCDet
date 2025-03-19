@@ -2,6 +2,7 @@ from collections import Counter
 import os
 import time
 import warnings
+import numpy as np
 import pandas as pd
 import yaml
 from google.cloud import bigquery
@@ -22,8 +23,7 @@ class FetchTable:
         ]  # `annotell-com.dbt_shapes.shapes_training_cuboid`
         self.projects = self.config["projects"]
         self.requests = self.config["requests"]
-        self.classes_dict = self.config["classes"]
-        self.classes = list(self.classes_dict.keys())
+        self.classes = self.config["classes"]
         if len(self.classes) > 1:
             self.classes = tuple(self.classes)
         else:
@@ -49,7 +49,7 @@ class FetchTable:
             FROM annotell-com.dbt_staging__api_data.stg_api_data__judgement_overview
             WHERE judgement_id IN (SELECT judgement_id FROM relevant_judgement_ids)
                 AND task_category = 'production'
-                AND {self.id_list_name} IN ({', '.join(map(str, self.id_list))})
+                AND {self.id_list_name} IN ({", ".join(map(str, self.id_list))})
         ),
 
         -- Step 3: Get raw data for the filtered judgement_ids
@@ -193,7 +193,7 @@ class FetchTable:
         WITH meta AS (
             SELECT DISTINCT input_internal_id
             FROM annotell-com.dbt_staging__api_data.stg_api_data__judgement_overview
-            WHERE {self.id_list_name} IN ({', '.join(map(str, self.id_list))})
+            WHERE {self.id_list_name} IN ({", ".join(map(str, self.id_list))})
             )
         SELECT 
             scene_uuid,
@@ -308,7 +308,7 @@ class FetchTable:
     def get_label_resources(self):
         datatable = self.get_database_table(
             self.cuboid_query(),
-            f"""Fetching data table for {f'project {self.config["projects"]}' if self.config["projects"] else f'request {self.config["requests"]}'}""",
+            f"""Fetching data table for {f"project {self.config['projects']}" if self.config["projects"] else f"request {self.config['requests']}"}""",
         )
         # print(datatable.head())
         sensor_table = self.get_database_table(
@@ -322,5 +322,47 @@ class FetchTable:
 
 
 if __name__ == "__main__":
-    fetcher = FetchTable("dataset_creation/config.yaml")
-    fetcher.get_label_resources()
+    # fetcher = FetchTable("dataset_creation/config.yaml")
+    # fetcher.get_label_resources()
+    # load datatable_project_id_178.pkl and print head
+    datatable = pd.read_pickle("dataset_creation/datatable_project_id_873,874,915.pkl")
+    print(datatable.head())
+    # return the scene_uuid for the judgement_id 15952702
+    # print(datatable[datatable["judgement_id"] == 15952702]["scene_uuid"].values)
+    # print geometries where shape_timestamp is 23012 and judgement_id is 15952702
+    subset = datatable[
+        (datatable["judgement_id"] == 15952702)
+        & (
+            datatable["geometries"].apply(
+                lambda x: any([i["shape_timestamp"] == 23012 for i in x])
+            )
+        )
+    ]["geometries"]
+    for i in subset:
+        # print shape_id, shape_details, shape_class, shape_timestamp
+        print(
+            [
+                (
+                    j["shape_id"],
+                    j["shape_details"],
+                    j["shape_class"],
+                    j["shape_timestamp"],
+                )
+                for j in i
+            ]
+        )
+    # find the object where distance to origin of coordinates is the smallest at shape_timestamp 23012
+    min_distance = 1000
+    min_distance_obj = None
+    for geometry in subset:
+        for shape in geometry:
+            if shape["shape_timestamp"] == 23012:
+                distance = np.linalg.norm(
+                    np.array(shape["shape_details"]["coordinates"])
+                )
+                if distance < min_distance:
+                    min_distance = distance
+                    min_distance_obj = shape
+    print(
+        f"Object with smallest distance to origin at shape_timestamp 23012: {min_distance_obj}, object distance: {min_distance}"
+    )

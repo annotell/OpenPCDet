@@ -39,6 +39,7 @@ class DatasetLoader:
                 self.config["dataset_root"], self.config["dataset_name"]
             )
             self.filter_pc = self.config.get("filter_pc", False)
+            self.transform2LCS = self.config.get("transform2LCS", False)
         else:
             if save_dir is None:
                 raise ValueError("save_dir must be provided if config is not provided")
@@ -170,6 +171,12 @@ class DatasetLoader:
         judgement_id, data = item
         input_internal_id = data["input_internal_id"]
         is_multilidar = data["is_multilidar"]
+        try:
+            lidar_sensors = self.get_lidar_sensors(input_internal_id)
+            lidar_projectors, calib = self.get_lidar_projectors(input_internal_id)
+        except:
+            print(f"Failed to get lidar sensors for {input_internal_id}")
+            return
         for timestamp in data["timestamps"].keys():
             resource_id = data["timestamps"][timestamp]["resource_id"]
             filename = f"{judgement_id}_{timestamp}"
@@ -177,13 +184,7 @@ class DatasetLoader:
             anno_exists = filename in self.existing_annos
 
             if pc_exists and anno_exists:
-                continue
-
-            try:
-                lidar_sensors = self.get_lidar_sensors(input_internal_id)
-                lidar_projectors, calib = self.get_lidar_projectors(input_internal_id)
-            except:
-                print(f"Failed to get lidar sensors for {input_internal_id}")
+                print(f"Skipping {filename}, already exists")
                 continue
 
             if not anno_exists:
@@ -196,6 +197,7 @@ class DatasetLoader:
                     lidar_sensors,
                 )
             if len(cuboids) == 0:
+                print(f"No cuboids found for {input_internal_id}")
                 continue
 
             if not pc_exists:
@@ -252,15 +254,18 @@ class DatasetLoader:
                         coordinates=geo["coordinates"],
                         rotation=geo["rotation"],
                     )
-                    new_coords = (
-                        lidar_projector.transform_matrix
-                        @ np.concatenate([cuboid.coordinates, [1]])
-                    )[:3]
-                    new_rot_mat = (
-                        lidar_projector.transform_matrix[:3, :3]
-                        @ cuboid.rotation_matrix
-                    )
-                    new_quat = Rotation.from_matrix(new_rot_mat).as_quat()
+                    new_coords = cuboid.coordinates
+                    new_quat = cuboid.rotation
+                    if self.transform2LCS:
+                        new_coords = (
+                            lidar_projector.transform_matrix
+                            @ np.concatenate([cuboid.coordinates, [1]])
+                        )[:3]
+                        new_rot_mat = (
+                            lidar_projector.transform_matrix[:3, :3]
+                            @ cuboid.rotation_matrix
+                        )
+                        new_quat = Rotation.from_matrix(new_rot_mat).as_quat()
                     cuboids.append(
                         {
                             "scale": geo["scale"],
@@ -352,8 +357,6 @@ class DatasetLoader:
         total_time = time.time() - self.start_time
         hours, rem = divmod(total_time, 3600)
         minutes, seconds = divmod(rem, 60)
-        print("Val annotations:", val_annotations)
-        print("Val annotation count:", len(val_annotations))
         print(
             f"Created train/val split with {len(train_annotations)} train and {len(val_annotations)} val samples"
         )
@@ -435,11 +438,9 @@ class DatasetLoader:
                     desc="Arranging data",
                 )
             )
-
         to_download = {}
         for result in results:
             to_download = self.flatten(to_download, result)
-
         with ThreadPoolExecutor(max_workers=self.config["max_workers"]) as executor:
             results = list(
                 tqdm(

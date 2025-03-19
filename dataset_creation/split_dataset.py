@@ -20,6 +20,7 @@ class Splitter:
         self.save_dir_pcs = os.path.join(self.save_dir, "pcs")
         self.save_dir_annos = os.path.join(self.save_dir, "annos")
         self.split_ratio = self.config.get("train_split", 0.9)
+        self.pcs_handled = 0
 
     def split_dataset(self):
         # load all files in annos, remove file extension, ranomize it and split it
@@ -39,7 +40,11 @@ class Splitter:
             )
         annos = [anno for anno, valid in zip(annos, valids) if valid]
         random.shuffle(annos)
-        split_idx = int(len(annos) * self.split_ratio)
+        split_idx = (
+            int(len(annos) * self.split_ratio)
+            if self.split_ratio < 1
+            else self.split_ratio
+        )
         train_annos = annos[:split_idx]
         val_annos = annos[split_idx:]
 
@@ -58,10 +63,13 @@ class Splitter:
         print("Invalid point clouds removed: ", len(valids) - len(annos))
 
     def valid_pc(self, pc_path):
+        if self.pcs_handled > self.split_ratio and self.split_ratio >= 1:
+            return True
         try:
             # pc_path = os.path.join(str(self.root_path), self.custom_infos[idx][0])
             pointcloud = np.load(pc_path, allow_pickle=True)
             # print shape of pointcloud
+            self.pcs_handled += 1
             return pointcloud["arr_0"].shape[1] >= 4
         except:
             print("Invalid pointcloud: ", pc_path)
