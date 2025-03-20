@@ -3,17 +3,16 @@ import datetime
 import glob
 import os
 from pathlib import Path
-from test import repeat_eval_ckpt
-import yaml
+import time
 
-import _init_path
 import torch
 import torch.nn as nn
 from tensorboardX import SummaryWriter
+import yaml
 from train_utils.optimization import build_optimizer, build_scheduler
 from train_utils.train_utils import train_model
 
-from pcdet.config import cfg, cfg_from_list, cfg_from_yaml_file, log_config_to_file
+from pcdet.config import cfg, cfg_from_list, cfg_from_yaml_file, merge_new_config
 from pcdet.datasets import build_dataloader
 from pcdet.models import build_network, model_fn_decorator
 from pcdet.utils import common_utils
@@ -38,7 +37,7 @@ def parse_config():
         type=str,
         default=None,
         help="specify the config for training",
-        required=True,
+        required=False,
     )
 
     parser.add_argument(
@@ -138,67 +137,148 @@ def parse_config():
     )
 
     args = parser.parse_args()
-    cfg_from_yaml_file(args.model_cfg, cfg)
-    dataset_cfg = {}
-    cfg_from_yaml_file(args.dataset_cfg, dataset_cfg)
-
-    cfg.TAG = Path(args.model_cfg).stem
-    cfg.EXP_GROUP_PATH = "/".join(
-        args.model_cfg.split("/")[1:-1]
+    cfg_from_yaml_file(args.model_cfg, cfg) if args.model_cfg else {}
+    cfg.TAG = Path(args.model_cfg).stem if args.model_cfg else ""
+    cfg.EXP_GROUP_PATH = (
+        "/".join(args.model_cfg.split("/")[1:-1]) if args.model_cfg else ""
     )  # remove 'cfgs' and 'xxxx.yaml'
 
     args.use_amp = args.use_amp or cfg.OPTIMIZATION.get("USE_AMP", False)
 
     if args.set_cfgs is not None:
         cfg_from_list(args.set_cfgs, cfg)
+    dataset_cfg = cfg_from_yaml_file(args.dataset_cfg, {})
 
     return args, cfg, dataset_cfg
 
 
+def convert_for_yaml(obj):
+    """Recursively convert objects to YAML-safe formats"""
+    if isinstance(obj, Path):
+        return str(obj)  # Convert Path to string
+    if isinstance(obj, (list, tuple)):
+        return [convert_for_yaml(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: convert_for_yaml(v) for k, v in obj.items()}
+    return obj
+
+
 def define_classes_ux(model_cfg, dataset_cfg, output_dir):
+    rank = (
+        torch.distributed.get_rank() if torch.distributed.is_initialized() else 0
+    )  # Get rank, default to 0 if not using distributed mode
+
+    # wait 3 seconds for the other processes to start
+    time.sleep(1)
+    print("")
+    # check if old config exists in output_dir/ckpt with structure "{dataset_cfg['dataset_name']}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.yaml"
+    ckpt_dir = output_dir / "ckpt"
+    ckpt_files = glob.glob(str(ckpt_dir / f"{dataset_cfg['dataset_name']}*.yaml"))
+    if len(ckpt_files) > 0:
+        ckpt_files.sort(key=os.path.getmtime)
+        if rank == 0:
+            res = input(
+                f"Found existing config files. Do you want to load the latest config? {os.path.basename(ckpt_files[-1])} (Y/n): "
+            )
+        else:
+            res = None
+
+        # Broadcast the user decision to all processes
+        res = [res]  # Wrap in list for broadcasting
+        torch.distributed.broadcast_object_list(res, src=0)
+        res = res[0]  # Unwrap
+
+        if res.lower() in ["y", ""]:
+            with open(ckpt_files[-1], "r") as f:
+                conf = yaml.load(f, Loader=yaml.FullLoader)
+            model_cfg = merge_new_config(
+                model_cfg, conf
+            )  # merge with pre-loaded config, since it includes the cfg base-parameters (TODO: check if model_cfg args is still just optional or if this fails)
+            model_cfg["LOCAL_RANK"] = rank
+            return model_cfg
+    if "MODEL" not in model_cfg.keys():
+        raise ValueError("MODEL key not found in model config")
+
     classes = dataset_cfg["classes"]
-    print("Classes in the dataset: ", classes)
+
+    if rank == 0:
+        print("Classes in the dataset: ", classes)
+
     if "CLASS_ADJUSTMENTS" in model_cfg.keys():
         new_classes = []
         class_adjustments = model_cfg["CLASS_ADJUSTMENTS"]
         for c in class_adjustments.keys():
             if c in classes and class_adjustments[c] not in new_classes:
                 new_classes.append(class_adjustments[c])
-        print("Adjusted classes: ", new_classes)
+
+        if rank == 0:
+            print("Adjusted classes: ", new_classes)
     else:
         model_cfg["CLASS_ADJUSTMENTS"] = {}
-    res = input("Do you want to adjust the class names? (y/N): ")
-    if res.lower() == "y":
-        adjuster = {}
-        merged_classes = classes.extend(new_classes)
-        main_classes = input(
-            "Enter the main classes for training separated by commas: "
-        ).split(",")
-        print(f"{i}: {c}\n" for i, c in enumerate(merged_classes))
-        for c in main_classes:
-            batch = input(
-                f"Enter the classes to merge to {c} separated by commas: "
-            ).split(",")
-            for b in batch:
-                adjuster[b] = c
-        model_cfg["CLASS_ADJUSTMENTS"] = adjuster
-        model_cfg["CLASS_NAMES"] = main_classes
+
+    if rank == 0:
+        res = input("Do you want to use the class names as they are? (Y/n): ")
     else:
-        model_cfg["CLASS_NAMES"] = new_classes if new_classes else classes
-    # we also overwrite the class names in the dense head with the ones from the config file
-    # NOTE: this is specific for the model voxel_rcnn! Other models might not have this head or have different names
-    model_cfg.MODEL.DENSE_HEAD.CLASS_NAMES_EACH_HEAD = [cfg.CLASS_NAMES]
-    # save model config to checkpoint directory
-    cfg_file = (
-        output_dir
-        / "ckpt"
-        / f"{dataset_cfg['dataset_name']}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.yaml"
-    )
-    with open(
-        cfg_file,
-        "w",
-    ) as f:
-        yaml.dump(model_cfg, f, default_flow_style=False)
+        res = None
+
+    # Broadcast the user decision to all processes
+    res = [res]  # Wrap in list for broadcasting
+    torch.distributed.broadcast_object_list(res, src=0)
+    res = res[0]  # Unwrap
+
+    if res.lower() == "n" and rank == 0:
+        if rank == 0:
+            adjuster = {}
+            merged_classes = (
+                classes + new_classes
+            )  # Avoid in-place modification of classes
+            main_classes = input(
+                "Enter the main classes for training separated by commas: "
+            ).split(",")
+
+            print("\n".join(f"{i}: {c}" for i, c in enumerate(merged_classes)))
+
+            for c in main_classes:
+                batch = input(
+                    f"Enter the classes to merge to {c} separated by commas: "
+                ).split(",")
+                for b in batch:
+                    adjuster[b] = c
+
+            model_cfg["CLASS_ADJUSTMENTS"] = adjuster
+            model_cfg["CLASS_NAMES"] = main_classes
+        else:
+            model_cfg["CLASS_ADJUSTMENTS"] = None
+            model_cfg["CLASS_NAMES"] = None
+    else:
+        if rank == 0:
+            model_cfg["CLASS_NAMES"] = new_classes if new_classes else classes
+
+    # Broadcast the finalized model_cfg from rank 0 to all other processes
+    model_cfg_list = [model_cfg]
+    torch.distributed.broadcast_object_list(model_cfg_list, src=0)
+    model_cfg = model_cfg_list[0]
+
+    # Apply the updated class names to the model config
+    model_cfg.MODEL.DENSE_HEAD.CLASS_NAMES_EACH_HEAD = [model_cfg["CLASS_NAMES"]]
+
+    if rank == 0:
+        # Save model config to checkpoint directory (only rank 0 writes)
+        cfg_file = (
+            output_dir
+            / "ckpt"
+            / f"{dataset_cfg['dataset_name']}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.yaml"
+        )
+        with open(cfg_file, "w") as f:
+            yaml.dump(
+                convert_for_yaml(model_cfg),
+                f,
+                default_flow_style=False,
+                default_style=None,
+                allow_unicode=True,
+            )
+
+    model_cfg["LOCAL_RANK"] = rank
     return model_cfg
 
 
@@ -207,10 +287,11 @@ def main():
     cfg["DATA_PATH"] = os.path.join(
         dataset_cfg["dataset_root"], dataset_cfg["dataset_name"]
     )
+    cfg["CKPT_PATH"] = args.ckpt if args.ckpt is not None else ""
     output_dir = (
-        Path("/root/OpenPCDet/output") / cfg.EXP_GROUP_PATH / cfg.TAG / args.extra_tag
+        # Path("/root/OpenPCDet/output") / cfg.EXP_GROUP_PATH / cfg.TAG / args.extra_tag
+        Path("/root/OpenPCDet/output") / "autobaans_models" / "voxel_rcnn" / "default"
     )
-    cfg = define_classes_ux(cfg, dataset_cfg, output_dir)
 
     log_file = output_dir / (
         "train_%s.log" % datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -228,6 +309,7 @@ def main():
         logger.info(
             f"Process rank: {torch.distributed.get_rank()}, local rank: {cfg.LOCAL_RANK}, GPU: {torch.cuda.current_device()}"
         )
+    torch.cuda.set_device(cfg.LOCAL_RANK)
 
     if args.batch_size is None:
         args.batch_size = cfg.OPTIMIZATION.BATCH_SIZE_PER_GPU
@@ -244,6 +326,12 @@ def main():
     ckpt_dir = output_dir / "ckpt"
     output_dir.mkdir(parents=True, exist_ok=True)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+    cfg = define_classes_ux(cfg, dataset_cfg, output_dir)
+    print(f"Classes: {cfg['CLASS_NAMES']}")
+    print(
+        f"Dense head class names: {cfg['MODEL']['DENSE_HEAD']['CLASS_NAMES_EACH_HEAD']}"
+    )
 
     # log to file
     logger.info("**********************Start logging**********************")
@@ -293,6 +381,7 @@ def main():
     )
     if args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+
     model.cuda()
 
     optimizer = build_optimizer(model, cfg.OPTIMIZATION)

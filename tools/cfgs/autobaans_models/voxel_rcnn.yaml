@@ -38,7 +38,7 @@ DATA_AUGMENTOR:
       WORLD_SCALE_RANGE: [ 0.95, 1.05 ]
 
     - NAME: random_world_translation
-      NOISE_TRANSLATE_STD: [0.5, 0.5, 0.5]
+      NOISE_TRANSLATE_STD: [2.5, 2.5, 2.5]
     
 
 POINT_FEATURE_ENCODING: {
@@ -227,7 +227,7 @@ MODEL:
 
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 5
-    NUM_EPOCHS: 35
+    NUM_EPOCHS: 50
 
     OPTIMIZER: adam_onecycle
     LR: 0.000025

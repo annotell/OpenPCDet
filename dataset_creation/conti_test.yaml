@@ -1,5 +1,5 @@
 table: annotell-com.dbt_shapes.shapes_training_cuboid
-projects: [873,874,915] # if requests are provided, this will be ignored
+projects: [874] # if requests are provided, this will be ignored
 requests: [] #8278 9033 4632
 
 classes:
@@ -12,7 +12,7 @@ classes:
   - Trailer
 
 dataset_root: '/mnt/bfd/datasets/autobaans/3dod'
-dataset_name: 'conti3d' # name of the dataset folder, will create if it does not exist
+dataset_name: 'conti874' # name of the dataset folder, will create if it does not exist
 max_workers: 8 # number of threads downloading single inputs
 transform2LCS: False # if True, will transform the bounding boxes to the lidar coordinate system of the point cloud
 

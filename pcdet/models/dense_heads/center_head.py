@@ -273,7 +273,15 @@ class CenterHead(nn.Module):
             ) = [], [], [], [], []
             for bs_idx in range(batch_size):
                 cur_gt_boxes = gt_boxes[bs_idx]
-                gt_class_names = all_names[cur_gt_boxes[:, -1].cpu().long().numpy()]
+                try:
+                    gt_class_names = all_names[cur_gt_boxes[:, -1].cpu().long().numpy()]
+                except Exception as e:
+                    print(f"All class names: {all_names}")
+                    print(
+                        f"GT class indices: {cur_gt_boxes[:, -1].cpu().long().numpy()}"
+                    )
+                    print(f"Current gt boxes: {cur_gt_boxes}")
+                    raise e
 
                 gt_boxes_single_head = []
 
