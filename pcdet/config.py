@@ -74,14 +74,14 @@ def merge_new_config(config, new_config):
 
 
 def cfg_from_yaml_file(cfg_file, config):
-    if cfg_file.startswith("gs://"):
+    try:
         client = storage.Client()
         bucket_name, blob_name = cfg_file[5:].split("/", 1)
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(blob_name)
         content = blob.download_as_string().decode("utf-8")
         new_config = yaml.safe_load(content)
-    else:
+    except:
         with open(cfg_file, "r") as f:
             try:
                 new_config = yaml.safe_load(f, Loader=yaml.FullLoader)
