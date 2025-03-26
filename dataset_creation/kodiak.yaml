@@ -1,0 +1,22 @@
+table: annotell-com.dbt_shapes.shapes_training_cuboid
+projects: [921,922,1049] # if requests are provided, this will be ignored
+requests: [] #8278 9033 4632
+
+classes:
+  - vehicle
+  - emergency_vehicle
+  - trailer
+  - sign_trailer
+  - ego_trailer
+  - motorbike
+  - bicyclist
+  - pedestrian
+
+dataset_root: '/mnt/bfd/datasets/autobaans/3dod'
+dataset_name: 'kodiak3d' # name of the dataset folder, will create if it does not exist
+max_workers: 8 # number of threads downloading single inputs
+transform2LCS: False # if True, will transform the bounding boxes to the lidar coordinate system of the point cloud
+
+create_splits: False
+train_split: 0.98
+filter_pc: False

@@ -8,7 +8,7 @@ from typing import List
 
 import numpy as np
 from annotell.apiclients.scene_input_api_client import SceneInputApiClient
-from kognic.filestorage.filestorage import FileId
+from kognic.filestorage.fileid import FileId
 from kognic.filestorage.resource_parser import parse_file_id
 from kognic.io.model.calibration.lidar.lidar_calibration import LidarCalibration
 from kognic.judgement_shapes.cube_3d import Cube3D
@@ -153,7 +153,7 @@ class DatasetLoader:
                     # remove sensor_id column
                     sensor_pc = sensor_pc[:, :4]
                     # save new pcs
-                    new_filename = f"{filename}_{source_id}"
+                    new_filename = f"{filename}_{int(source_id)}"
                     np.savez_compressed(
                         os.path.join(self.save_dir_pcs, f"{new_filename}.npy"),
                         sensor_pc,
@@ -241,6 +241,9 @@ class DatasetLoader:
         cuboids = []
         for sensor_name, shapes in sensors.items():
             if is_multilidar:
+                if sensor_name==None:
+                    print(f"Missing sensor name for {judgement_id}: {timestamp} -- {sensor_name} not found in {lidar_projectors.keys()}")
+                    continue
                 lidar_projector = lidar_projectors[sensor_name]
                 lidar_sensor = lidar_sensors[sensor_name]
             else:

@@ -13,9 +13,11 @@ from ..model_utils import model_nms_utils
 import numpy.core.multiarray
 
 # Allowlist the required global
-torch.serialization.add_safe_globals([numpy.core.multiarray.scalar])
-torch.serialization.add_safe_globals([np.dtype])
-torch.serialization.add_safe_globals([np.dtype("float64")])
+
+if hasattr(torch.serialization, "add_safe_globals"):
+    torch.serialization.add_safe_globals([np.core.multiarray.scalar])
+    torch.serialization.add_safe_globals([np.dtype])
+    torch.serialization.add_safe_globals([np.dtype("float64")])
 
 
 class Detector3DTemplate(nn.Module):
