@@ -186,6 +186,7 @@ class FetchTable:
             input_n_timestamps
         """
 
+        print(sql_query)
         return sql_query
 
     def lidar_sensor_query(self):
@@ -207,7 +208,7 @@ class FetchTable:
         GROUP BY 
             scene_uuid;
         """
-
+        
         return sql_query
 
     def get_database_table(self, sql_query, desc):

@@ -240,10 +240,10 @@ def define_classes_ux(model_cfg, dataset_cfg, output_dir):
 
             for c in main_classes:
                 batch = input(
-                    f"Enter the classes to merge to {c} separated by commas: "
+                    f"Enter the class indices to merge to {c} separated by commas: "
                 ).split(",")
                 for b in batch:
-                    adjuster[b] = c
+                    adjuster[merged_classes[int(b)]] = c
 
             model_cfg["CLASS_ADJUSTMENTS"] = adjuster
             model_cfg["CLASS_NAMES"] = main_classes
