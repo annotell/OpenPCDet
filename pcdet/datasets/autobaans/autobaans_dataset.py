@@ -105,9 +105,6 @@ class AutobaansDataset(DatasetTemplate):
             return len(self.sample_id_list) * self.total_epochs
         return len(self.custom_infos)
 
-    def convert_class_name(self, name):
-        return self.dataset_cfg.CLASS_ADJUSTMENT.get(name, name)
-
     def convert_annotations(self, path):
         try:
             with open(path, "rb") as f:
@@ -119,6 +116,9 @@ class AutobaansDataset(DatasetTemplate):
 
         for i in range(0, len(judgement)):
             curr_obj = judgement[i]
+            if curr_obj["class"] not in self.dataset_cfg["CLASS_ADJUSTMENTS"]:
+                print("!!! Class name not found in class adjustment: ", curr_obj["class"])
+                continue
             obj_class = self.dataset_cfg["CLASS_ADJUSTMENTS"][curr_obj["class"]]
             coordinates = curr_obj["coordinates"]
             wid, le, hei = curr_obj["scale"]

@@ -7,6 +7,11 @@ import tqdm
 from torch.nn.utils import clip_grad_norm_
 
 from pcdet.utils import common_utils, commu_utils
+#This is to import the GradScaler and autocast for torch in a version agnostic way
+try:
+    from torch.amp import GradScaler, autocast  #for torch >= 1.6
+except ImportError:
+    from torch.cuda.amp import GradScaler, autocast #for torch < 1.6
 
 
 def train_one_epoch(
@@ -33,13 +38,14 @@ def train_one_epoch(
     show_gpu_stat=False,
     use_amp=False,
 ):
+    torch.autograd.set_detect_anomaly(True)
     if total_it_each_epoch == len(train_loader):
         dataloader_iter = iter(train_loader)
 
     ckpt_save_cnt = 1
     start_it = accumulated_iter % total_it_each_epoch
 
-    scaler = torch.amp.GradScaler(
+    scaler = GradScaler(
         init_scale=optim_cfg.get("LOSS_SCALE_FP16", 2.0 ** 16),
         enabled=use_amp,
         #device_type="cuda",
@@ -81,9 +87,15 @@ def train_one_epoch(
 
         model.train()
         optimizer.zero_grad()
+        try:
+            # Try older signature first (PyTorch <1.10)
+            with autocast(enabled=use_amp):
+                loss, tb_dict, disp_dict = model_func(model, batch)
+        except TypeError:
+            # Fallback to newer signature (PyTorch 1.10+)
+            with autocast(enabled=use_amp, device_type='cuda'):
+                loss, tb_dict, disp_dict = model_func(model, batch)
 
-        with torch.amp.autocast(enabled=use_amp, device_type='cuda'):
-            loss, tb_dict, disp_dict = model_func(model, batch)
 
         scaler.scale(loss).backward()
         scaler.unscale_(optimizer)
