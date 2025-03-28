@@ -90,7 +90,7 @@ def parse_config():
         "--ckpt_save_interval", type=int, default=1, help="number of training epochs"
     )
     parser.add_argument(
-        "--local-rank", type=int, default=0, help="local rank for distributed training"
+        "--local_rank", type=int, default=0, help="local rank for distributed training"
     )
     parser.add_argument(
         "--max_ckpt_save_num",

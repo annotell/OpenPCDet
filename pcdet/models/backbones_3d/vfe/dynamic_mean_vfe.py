@@ -2,11 +2,7 @@ import torch
 
 from .vfe_template import VFETemplate
 
-try:
-    import torch_scatter
-except Exception as e:
-    # Incase someone doesn't want to use dynamic pillar vfe and hasn't installed torch_scatter
-    pass
+import torch_scatter
 
 from .vfe_template import VFETemplate
 
