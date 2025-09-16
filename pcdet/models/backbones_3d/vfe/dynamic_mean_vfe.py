@@ -11,10 +11,11 @@ class DynamicMeanVFE(VFETemplate):
     def __init__(self, model_cfg, num_point_features, voxel_size, grid_size, point_cloud_range, **kwargs):
         super().__init__(model_cfg=model_cfg)
         self.num_point_features = num_point_features
-
-        self.grid_size = torch.tensor(grid_size).cuda()
-        self.voxel_size = torch.tensor(voxel_size).cuda()
-        self.point_cloud_range = torch.tensor(point_cloud_range).cuda()
+        # Create tensors on the active device to avoid forcing CUDA init during __init__
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.grid_size = torch.tensor(grid_size, device=self.device)
+        self.voxel_size = torch.tensor(voxel_size, device=self.device)
+        self.point_cloud_range = torch.tensor(point_cloud_range, device=self.device)
 
         self.voxel_x = voxel_size[0]
         self.voxel_y = voxel_size[1]
