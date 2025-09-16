@@ -96,7 +96,11 @@ def train_one_epoch(
             with autocast(enabled=use_amp, device_type='cuda'):
                 loss, tb_dict, disp_dict = model_func(model, batch)
 
-
+        if not torch.isfinite(loss):
+            print("NaN loss detected at iteration {}, stopping training".format(cur_it))
+            print("loss: ", loss)
+            print("batch: ", batch)
+            continue
         scaler.scale(loss).backward()
         scaler.unscale_(optimizer)
         clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)

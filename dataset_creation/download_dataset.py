@@ -251,7 +251,7 @@ class DatasetLoader:
                 lidar_sensor = None
             for shape_class, shapes in shapes.items():
                 for _, shape in shapes.items():
-                    geo = shape["geometry"]
+                    geo = json.loads(shape["geometry"])
                     cuboid = Cube3D(
                         scale=geo["scale"],
                         coordinates=geo["coordinates"],

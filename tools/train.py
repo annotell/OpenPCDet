@@ -214,7 +214,8 @@ def define_classes_ux(model_cfg, dataset_cfg, output_dir):
         if rank == 0:
             print("Adjusted classes: ", new_classes)
     else:
-        model_cfg["CLASS_ADJUSTMENTS"] = {}
+        model_cfg["CLASS_ADJUSTMENTS"] = {c: c for c in classes}
+        new_classes = classes
 
     if rank == 0:
         res = input("Do you want to use the class names as they are? (Y/n): ")
@@ -328,10 +329,6 @@ def main():
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
     cfg = define_classes_ux(cfg, dataset_cfg, output_dir)
-    print(f"Classes: {cfg['CLASS_NAMES']}")
-    print(
-        f"Dense head class names: {cfg['MODEL']['DENSE_HEAD']['CLASS_NAMES_EACH_HEAD']}"
-    )
 
     # log to file
     logger.info("**********************Start logging**********************")
