@@ -35,6 +35,7 @@ if __name__ == '__main__':
         name='pcdet',
         version=version,
         description='OpenPCDet is a general codebase for 3D object detection from point cloud',
+        python_requires='>=3.6,<3.15',
         install_requires=[
             'numpy',
             'llvmlite',

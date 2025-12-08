@@ -78,7 +78,7 @@ class NeighborVoxelSAModuleMSG(nn.Module):
         :param point_indices: (B, Z, Y, X) tensor of point indices
         :return:
             new_xyz: (M1 + M2 ..., 3) tensor of the new features' xyz
-            new_features: (M1 + M2 ..., \sum_k(mlps[k][-1])) tensor of the new_features descriptors
+            new_features: (M1 + M2 ..., \\sum_k(mlps[k][-1])) tensor of the new_features descriptors
         """
         # change the order to [batch_idx, z, y, x]
         new_coords = new_coords[:, [0, 3, 2, 1]].contiguous()
