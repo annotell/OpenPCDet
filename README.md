@@ -19,6 +19,7 @@ It is also the official code release of [`[PointRCNN]`](https://arxiv.org/abs/18
 - [Installation](docs/INSTALL.md)
 - [Quick Demo](docs/DEMO.md)
 - [Getting Started](docs/GETTING_STARTED.md)
+- [KOGNIC Fork Documentation](KOGNIC_README.md) - Training guide and config information for the KOGNIC fork
 - [Citation](#citation)
 
 
