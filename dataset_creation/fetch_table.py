@@ -39,8 +39,9 @@ class FetchTable:
 
         -- Step 1: Get relevant judgement_ids from assignments.db
         relevant_judgement_ids AS (
-            SELECT last_judgement_id_in_chain AS judgement_id
-            FROM `annotell-com.dbt_assignment_chains.assignment_chains`
+            SELECT judgement_id
+            FROM `annotell-com.dbt_production_metrics.production_metrics_unfiltered`
+            where last_exportable_index = sequence_index
         ),
 
         -- Step 2: Get meta data for relevant judgement_ids, filtering by task_category and project_id
@@ -218,6 +219,7 @@ class FetchTable:
         # Run the query and convert to Pandas DataFrame
         # print("Query:\n", sql_query)
         query_job = client.query(sql_query, job_config=job_config)
+        print("query_job:",query_job)
         # Wait a moment to ensure the job starts processing
         time.sleep(1)
 
@@ -251,6 +253,7 @@ class FetchTable:
                     time.sleep(1)
         # Get the destination table reference
         destination = query_job.destination
+        print("destination:",destination)
         destination = client.get_table(destination)  # Fetch the table schema
 
         # Use list_rows to get a RowIterator

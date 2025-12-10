@@ -1,14 +1,5 @@
 CLASS_NAMES: [ 'PLACEHOLDER' ] # Need to overwrite this when loading the user provided config
 
-CLASS_ADJUSTMENTS:
-  'Car': 'Vehicle'
-  'Van': 'Vehicle'
-  'Truck': 'Vehicle'
-  'Bus': 'Vehicle'
-  'Motorbike': 'VulnerableVehicle'
-  'Person': 'Pedestrian'
-  'Trailer': 'Vehicle'
-
 DATA_PATH: 'PLACEHOLDER'
 
 DATASET: AutobaansDataset

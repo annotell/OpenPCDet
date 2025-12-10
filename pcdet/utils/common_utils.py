@@ -289,7 +289,7 @@ def scatter_point_inds(indices, point_inds, shape):
     ndim = indices.shape[-1]
     flattened_indices = indices.view(-1, ndim)
     slices = [flattened_indices[:, i] for i in range(ndim)]
-    ret[slices] = point_inds
+    ret[tuple(slices)] = point_inds
     return ret
 
 

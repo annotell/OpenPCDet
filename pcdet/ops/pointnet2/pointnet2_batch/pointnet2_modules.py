@@ -23,7 +23,7 @@ class _PointnetSAModuleBase(nn.Module):
         :param new_xyz:
         :return:
             new_xyz: (B, npoint, 3) tensor of the new features' xyz
-            new_features: (B, npoint, \sum_k(mlps[k][-1])) tensor of the new_features descriptors
+            new_features: (B, npoint, \\sum_k(mlps[k][-1])) tensor of the new_features descriptors
         """
         new_features_list = []
 

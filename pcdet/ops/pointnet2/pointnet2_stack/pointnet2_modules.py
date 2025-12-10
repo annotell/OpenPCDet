@@ -110,7 +110,7 @@ class StackSAModuleMSG(nn.Module):
         :param features: (N1 + N2 ..., C) tensor of the descriptors of the the features
         :return:
             new_xyz: (M1 + M2 ..., 3) tensor of the new features' xyz
-            new_features: (M1 + M2 ..., \sum_k(mlps[k][-1])) tensor of the new_features descriptors
+            new_features: (M1 + M2 ..., \\sum_k(mlps[k][-1])) tensor of the new_features descriptors
         """
         new_features_list = []
         for k in range(len(self.groupers)):
@@ -572,7 +572,7 @@ class VectorPoolAggregationModule(nn.Module):
         :param features: (N1 + N2 ..., C) tensor of the descriptors of the the features
         :return:
             new_xyz: (M1 + M2 ..., 3) tensor of the new features' xyz
-            new_features: (M1 + M2 ..., \sum_k(mlps[k][-1])) tensor of the new_features descriptors
+            new_features: (M1 + M2 ..., \\sum_k(mlps[k][-1])) tensor of the new_features descriptors
         """
         N, C = features.shape
 
