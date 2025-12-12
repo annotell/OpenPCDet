@@ -37,14 +37,14 @@ if __name__ == '__main__':
         description='OpenPCDet is a general codebase for 3D object detection from point cloud',
         python_requires='>=3.6,<3.15',
         install_requires=[
-            'numpy',
+            'numpy>=1.26.2,<2.0',
             'llvmlite',
             'numba',
             'tensorboardX',
-            'easydict',
-            'pyyaml',
+            'easydict>=1.13,<2.0',
+            'PyYAML>=6.0.2,<7.0',  # Note: PyYAML is the canonical package name
             'scikit-image',
-            'tqdm',
+            'tqdm>4.29.0',
             'SharedArray',
             # 'spconv',  # spconv has different names depending on the cuda version
         ],
