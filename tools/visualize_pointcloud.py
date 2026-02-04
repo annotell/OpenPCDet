@@ -33,7 +33,8 @@ def check_ssh_connection(hosts, username):
         try:
             print(f"Trying SSH to {host}...")
             client = paramiko.SSHClient()
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            client.load_system_host_keys()
+            # Default policy is RejectPolicy: only connect to hosts in ~/.ssh/known_hosts
             client.connect(hostname=host, username=username, timeout=5)
             client.close()
             print(f"Connected to {host}")
@@ -48,7 +49,8 @@ def list_remote_directories(
     host, username, remote_path="/mnt/bfd/datasets/autobaans/3dod"
 ):
     client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.load_system_host_keys()
+    # Default policy is RejectPolicy: only connect to hosts in ~/.ssh/known_hosts
     client.connect(hostname=host, username=username)
     stdin, stdout, stderr = client.exec_command(f"ls -d {remote_path}/*/")
     dirs = [line.strip().split("/")[-2] for line in stdout.readlines()]
@@ -69,7 +71,8 @@ def list_remote_directories(
 def count_anno_files(host, username, project_path):
     remote_annos_path = f"/mnt/bfd/datasets/autobaans/3dod/{project_path}/annos"
     client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.load_system_host_keys()
+    # Default policy is RejectPolicy: only connect to hosts in ~/.ssh/known_hosts
     client.connect(hostname=host, username=username)
     stdin, stdout, stderr = client.exec_command(f"ls {remote_annos_path} | wc -l")
     count = int(stdout.read().strip())
@@ -84,7 +87,8 @@ def download_random_pair(host, username, project_path, local_dir):
     remote_pcs = f"{remote_base}/pcs"
 
     client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.load_system_host_keys()
+    # Default policy is RejectPolicy: only connect to hosts in ~/.ssh/known_hosts
     client.connect(hostname=host, username=username)
 
     # List files (without full paths)
