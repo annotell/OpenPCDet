@@ -8,8 +8,24 @@ from typing import List
 
 import numpy as np
 from annotell.apiclients.scene_input_api_client import SceneInputApiClient
+import base64
+import re
+
 from kognic.filestorage.fileid import FileId
-from kognic.filestorage.resource_parser import parse_file_id
+
+
+def _parse_resource_id(resource_id: str) -> FileId:
+    """Parse resource_id to FileId. Handles base64, gcp://, gcs:// (kognic-filestorage 3.x has no resource_parser)."""
+    if isinstance(resource_id, bytes):
+        resource_id = resource_id.decode()
+    s = str(resource_id).strip()
+    if ":" not in s:
+        pad_len = len(s) % 4
+        s = base64.urlsafe_b64decode(s + "=" * pad_len).decode()
+    s = s.replace("gcp://", "gs://").replace("gcs://", "gs://")
+    if s.startswith("local:") and not s.startswith("local://"):
+        s = s.replace("local:", "local://files/", 1)
+    return FileId.from_string(s)
 from kognic.io.model.calibration.lidar.lidar_calibration import LidarCalibration
 from kognic.judgement_shapes.cube_3d import Cube3D
 from kognic.potree.potree import PointAttributes
@@ -188,7 +204,7 @@ class DatasetLoader:
                 continue
 
             if not anno_exists:
-                cuboids = self.get_cuboids_all_sensors(
+                shapes_by_type = self.get_shapes_all_sensors(
                     data["timestamps"][timestamp]["sensors"],
                     lidar_projectors,
                     is_multilidar,
@@ -196,8 +212,10 @@ class DatasetLoader:
                     timestamp,
                     lidar_sensors,
                 )
-            if len(cuboids) == 0:
-                print(f"No cuboids found for {input_internal_id}")
+            # Check if we have any shapes
+            total_shapes = sum(len(shapes) for shapes in shapes_by_type.values())
+            if total_shapes == 0:
+                print(f"No shapes found for {input_internal_id}")
                 continue
 
             if not pc_exists:
@@ -212,24 +230,55 @@ class DatasetLoader:
                     pc = self.filter_pcs(pc, calib, lidar_sensors, input_internal_id)
 
                 self.pc_split_and_save(pc, filename, is_multilidar)
-            # save cuboids
-            self.cuboids_split_and_save(cuboids, filename)
+            # save shapes by type
+            self.shapes_split_and_save(shapes_by_type, filename)
+
+    def shapes_split_and_save(self, shapes_by_type, filename):
+        """
+        Save shapes split by type to separate pickle files.
+
+        For each shape type, groups by sensor and saves to:
+        {filename}_{sensor}_{shape_type}.pickle
+
+        For backward compatibility, if only Cube3D shapes exist, also saves to:
+        {filename}_{sensor}.pickle (without type suffix)
+        """
+        for shape_type, shapes in shapes_by_type.items():
+            if len(shapes) == 0:
+                continue
+
+            # Group by sensor
+            sensor_shapes = {}
+            for shape in shapes:
+                sensor_shapes.setdefault(shape["sensor"], []).append(shape)
+
+            # Save each sensor's shapes
+            for sensor_name, sensor_shape_list in sensor_shapes.items():
+                sensor_str = int(sensor_name) if sensor_name is not None else None
+
+                # Save with type suffix
+                type_filename = f"{filename}_{sensor_str}_{shape_type}.pickle"
+                with open(
+                    os.path.join(self.save_dir_annos, type_filename),
+                    "wb",
+                ) as handle:
+                    pickle.dump(sensor_shape_list, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+                # Backward compatibility: if only Cube3D and this is the only type, also save without suffix
+                if shape_type == "Cube3D" and len(shapes_by_type) == 1:
+                    compat_filename = f"{filename}_{sensor_str}.pickle"
+                    with open(
+                        os.path.join(self.save_dir_annos, compat_filename),
+                        "wb",
+                    ) as handle:
+                        pickle.dump(sensor_shape_list, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     def cuboids_split_and_save(self, cuboids, filename):
-        sensor_cuboids = {}
-        for cuboid in cuboids:
-            sensor_cuboids.setdefault(cuboid["sensor"], []).append(cuboid)
-        for sensor_name, cuboids in sensor_cuboids.items():
-            with open(
-                os.path.join(
-                    self.save_dir_annos,
-                    f"{filename}_{int(sensor_name) if sensor_name is not None else None}.pickle",
-                ),
-                "wb",
-            ) as handle:
-                pickle.dump(cuboids, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        """Legacy method for backward compatibility. Calls shapes_split_and_save."""
+        shapes_by_type = {"Cube3D": cuboids}
+        self.shapes_split_and_save(shapes_by_type, filename)
 
-    def get_cuboids_all_sensors(
+    def get_shapes_all_sensors(
         self,
         sensors,
         lidar_projectors,
@@ -238,10 +287,16 @@ class DatasetLoader:
         timestamp,
         lidar_sensors,
     ):
-        cuboids = []
+        """
+        Extract shapes from all sensors, supporting multiple shape types.
+
+        Returns dict of shapes grouped by type: {"Cube3D": [...], "ExtremePointBox": [...], ...}
+        """
+        shapes_by_type = {}
+
         for sensor_name, shapes in sensors.items():
             if is_multilidar:
-                if sensor_name==None:
+                if sensor_name == None:
                     print(f"Missing sensor name for {judgement_id}: {timestamp} -- {sensor_name} not found in {lidar_projectors.keys()}")
                     continue
                 lidar_projector = lidar_projectors[sensor_name]
@@ -249,28 +304,42 @@ class DatasetLoader:
             else:
                 lidar_projector = list(lidar_projectors.values())[0]
                 lidar_sensor = None
+
             for shape_class, shapes in shapes.items():
                 for _, shape in shapes.items():
-                    geo = json.loads(shape["geometry"])
-                    cuboid = Cube3D(
-                        scale=geo["scale"],
-                        coordinates=geo["coordinates"],
-                        rotation=geo["rotation"],
-                    )
-                    new_coords = cuboid.coordinates
-                    new_quat = cuboid.rotation
-                    if self.transform2LCS:
-                        new_coords = (
-                            lidar_projector.transform_matrix
-                            @ np.concatenate([cuboid.coordinates, [1]])
-                        )[:3]
-                        new_rot_mat = (
-                            lidar_projector.transform_matrix[:3, :3]
-                            @ cuboid.rotation_matrix
+                    # Parse geometry (can be dict or JSON string)
+                    geometry_data = shape["geometry"]
+                    if isinstance(geometry_data, str):
+                        geo = json.loads(geometry_data)
+                    else:
+                        geo = geometry_data
+
+                    # Get shape type
+                    shape_type = geo.get("type", "Unknown")
+
+                    # Process based on type
+                    if shape_type == "Cube3D":
+                        # Extract 3D bounding box
+                        cuboid = Cube3D(
+                            scale=geo["scale"],
+                            coordinates=geo["coordinates"],
+                            rotation=geo["rotation"],
                         )
-                        new_quat = Rotation.from_matrix(new_rot_mat).as_quat()
-                    cuboids.append(
-                        {
+                        new_coords = cuboid.coordinates
+                        new_quat = cuboid.rotation
+
+                        if self.transform2LCS:
+                            new_coords = (
+                                lidar_projector.transform_matrix
+                                @ np.concatenate([cuboid.coordinates, [1]])
+                            )[:3]
+                            new_rot_mat = (
+                                lidar_projector.transform_matrix[:3, :3]
+                                @ cuboid.rotation_matrix
+                            )
+                            new_quat = Rotation.from_matrix(new_rot_mat).as_quat()
+
+                        shape_dict = {
                             "scale": geo["scale"],
                             "coordinates": new_coords,
                             "rotation": new_quat,
@@ -279,8 +348,47 @@ class DatasetLoader:
                             "judgement_id": judgement_id,
                             "timestamp": timestamp,
                         }
-                    )
-        return cuboids
+                        shapes_by_type.setdefault("Cube3D", []).append(shape_dict)
+
+                    elif shape_type == "ExtremePointBox":
+                        # Extract 2D bounding box
+                        # Store as-is for now, can be processed by 2D training code
+                        shape_dict = {
+                            "type": "ExtremePointBox",
+                            "geometry": geo,
+                            "class": shape_class,
+                            "sensor": lidar_sensor,
+                            "judgement_id": judgement_id,
+                            "timestamp": timestamp,
+                        }
+                        shapes_by_type.setdefault("ExtremePointBox", []).append(shape_dict)
+
+                    elif shape_type in ["Polygon", "Line3D", "Curve", "Lane3D"]:
+                        # Extract polygon/line vertices
+                        shape_dict = {
+                            "type": shape_type,
+                            "geometry": geo,
+                            "class": shape_class,
+                            "sensor": lidar_sensor,
+                            "judgement_id": judgement_id,
+                            "timestamp": timestamp,
+                        }
+                        shapes_by_type.setdefault(shape_type, []).append(shape_dict)
+
+                    else:
+                        # Unknown type - store raw geometry
+                        print(f"Warning: Unknown shape type '{shape_type}' for judgement {judgement_id}")
+                        shape_dict = {
+                            "type": shape_type,
+                            "geometry": geo,
+                            "class": shape_class,
+                            "sensor": lidar_sensor,
+                            "judgement_id": judgement_id,
+                            "timestamp": timestamp,
+                        }
+                        shapes_by_type.setdefault("Other", []).append(shape_dict)
+
+        return shapes_by_type
 
     def get_cuboids(self, geometries, lidar_projector):
         cuboids = []
@@ -311,7 +419,7 @@ class DatasetLoader:
         return cuboids
 
     def get_pc(self, resource_id, is_multilidar: bool = False):
-        file_id = parse_file_id(resource_id)
+        file_id = _parse_resource_id(resource_id)
         pc = self.read_pointcloud_from_bucket(file_id, is_multilidar)
         return pc
 

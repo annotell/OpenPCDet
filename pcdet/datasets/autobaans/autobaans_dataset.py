@@ -153,9 +153,11 @@ class AutobaansDataset(DatasetTemplate):
 
             anno_id = self.custom_infos[index]
             pc_filename = anno_id + ".npy.npz"
-            anno_filename = anno_id + ".pickle"
             pc_path = os.path.join(str(self.root_path), "pcs", pc_filename)
-            anno_path = os.path.join(str(self.root_path), "annos", anno_filename)
+            # Try backward-compat name first, then type-specific
+            anno_path = os.path.join(str(self.root_path), "annos", anno_id + ".pickle")
+            if not os.path.exists(anno_path):
+                anno_path = os.path.join(str(self.root_path), "annos", anno_id + "_Cube3D.pickle")
 
             pointcloud = self.get_lidar(pc_path)
             get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])

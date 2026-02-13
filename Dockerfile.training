@@ -1,0 +1,12 @@
+# Distributed training image for OpenPCDet
+# Thin layer on autobaan-docker which already has PyTorch, CUDA, spconv, and OpenPCDet installed
+FROM eu.gcr.io/annotell-com/autobaan-docker:latest
+
+# OpenPCDet is already installed at /opt/OpenPCDet in the base image.
+# Copy the distributed training entrypoint.
+COPY scripts/distributed_train.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+WORKDIR /opt/OpenPCDet
+
+ENTRYPOINT ["/entrypoint.sh"]

@@ -1,0 +1,48 @@
+projects: [] # if requests are provided, this will be ignored
+requests: [13711] #8278 9033 4632
+
+classes:
+  'Car': 0
+  'Van': 1
+  'Truck': 2
+  'Bus': 3
+  'Motorcycle': 4
+  'Person': 5
+  'Trailer': 6
+
+dataset_root: '/mnt/bfd/datasets/autobaans/3dod'
+dataset_name: 'req9451' # name of the dataset folder, will create if it does not exist
+max_workers: 8 # number of threads downloading single inputs
+
+create_splits: False
+train_split: 0.98
+filter_pc: True
+
+# --- Fetch Statistics ---
+# Pickle: datatable_request_id_13711_api.pkl
+# Table shape: (15800, 7)
+# Unique scenes: 79
+# Frames per sequence: 200
+# Total frames: 3160000
+# Lidar sensors: 1
+# Point clouds: 15800
+#
+# Shape types:
+#   Line3D: 380000
+#   Lane3D: 179600
+#   Point3D: 27600
+#
+# Shape classes:
+#   SparseElevatedStructureOutsideRoadBoundary (Line3D): 128600
+#   SolidLaneMarking (Lane3D): 127800
+#   FlatStructure (Line3D): 73200
+#   Curb (Line3D): 53800
+#   DashedLaneMarking (Lane3D): 51800
+#   SparseElevatedStructure (Line3D): 35000
+#   DenseElevatedStructure (Line3D): 29200
+#   Fork (Point3D): 27600
+#   Non-relevantGap (Line3D): 19600
+#   RegionOfInterest (Line3D): 15800
+#   GuardrailOutsideRoadBoundary (Line3D): 12600
+#   DenseElevatedStructureOutsideRoadBoundary (Line3D): 10600
+#   Guardrail (Line3D): 1600
