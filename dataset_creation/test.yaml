@@ -1,4 +1,3 @@
-table: annotell-com.dbt_shapes.shapes_training_cuboid
 projects: [] # if requests are provided, this will be ignored
 requests: [9451] #8278 9033 4632
 
@@ -18,3 +17,25 @@ max_workers: 8 # number of threads downloading single inputs
 create_splits: False
 train_split: 0.98
 filter_pc: True
+
+# --- Fetch Statistics ---
+# Pickle: datatable_request_id_9451_api.pkl
+# Table shape: (5063, 7)
+# Unique scenes: 84
+# Frames per sequence: 53 - 61
+# Total frames: 305261
+# Lidar sensors: 1
+# Point clouds: 5063
+#
+# Shape types:
+#   Cube3D: 168509
+#
+# Shape classes:
+#   Car (Cube3D): 128040
+#   Van (Cube3D): 15605
+#   Person (Cube3D): 8926
+#   Trailer (Cube3D): 6016
+#   Motorbike (Cube3D): 5445
+#   Truck (Cube3D): 3201
+#   Bus (Cube3D): 850
+#   Ignore (Cube3D): 426

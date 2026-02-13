@@ -212,26 +212,18 @@ def init_dist_pytorch(tcp_port, local_rank, backend='nccl'):
     if mp.get_start_method(allow_none=True) is None:
         mp.set_start_method('spawn')
 
-    # Set MASTER_ADDR and MASTER_PORT
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = str(tcp_port)
+    # torch.distributed.run sets LOCAL_RANK env var; prefer it over CLI arg
+    local_rank = int(os.environ.get('LOCAL_RANK', local_rank))
 
-    # Debugging: Log the environment variables
-    print(f"MASTER_ADDR={os.environ['MASTER_ADDR']}, MASTER_PORT={os.environ['MASTER_PORT']}")
-
-    # Set the device for this process
     num_gpus = torch.cuda.device_count()
     torch.cuda.set_device(local_rank % num_gpus)
-    print(f"Process {local_rank} assigned to GPU {torch.cuda.current_device()}")
-    
-    # Initialize the process group
+    print(f"Process {local_rank} assigned to GPU {local_rank % num_gpus}")
+
     dist.init_process_group(
         backend=backend,
         init_method='env://'
     )
-    print(f"Process group initialized: rank={dist.get_rank()}, world_size={dist.get_world_size()}")
-    
-    
+
     rank = dist.get_rank()
     return num_gpus, rank
 

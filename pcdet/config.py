@@ -79,7 +79,7 @@ def cfg_from_yaml_file(cfg_file, config):
         bucket_name, blob_name = cfg_file[5:].split("/", 1)
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(blob_name)
-        content = blob.download_as_string().decode("utf-8")
+        content = blob.download_as_bytes().decode("utf-8")
         new_config = yaml.safe_load(content)
     except:
         with open(cfg_file, "r") as f:

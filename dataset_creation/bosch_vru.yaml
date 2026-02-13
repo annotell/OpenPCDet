@@ -1,4 +1,3 @@
-table: annotell-com.dbt_shapes.shapes_training_cuboid
 projects: [] # if requests are provided, this will be ignored
 requests: [11221,11176,11144,11143,11127,10934,10833,10677,10617,10601] #8278 9033 4632
 

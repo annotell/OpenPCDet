@@ -252,8 +252,12 @@ class FetchTable:
                     pbar.refresh()
                     time.sleep(1)
         # Get the destination table reference
+        if query_job.error_result:
+            raise RuntimeError(
+                f"BigQuery query failed: {query_job.error_result['message']}"
+            )
         destination = query_job.destination
-        print("destination:",destination)
+        print("destination:", destination)
         destination = client.get_table(destination)  # Fetch the table schema
 
         # Use list_rows to get a RowIterator

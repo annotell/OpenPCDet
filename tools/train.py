@@ -2,8 +2,13 @@ import argparse
 import datetime
 import glob
 import os
+import warnings
 from pathlib import Path
-import time
+
+# Suppress known third-party deprecation warnings (spconv, torch internals)
+warnings.filterwarnings("ignore", message=".*non-tuple sequence for multidimensional indexing.*")
+warnings.filterwarnings("ignore", message=".*torch.cuda.*DtypeTensor constructors.*")
+warnings.filterwarnings("ignore", message=".*is_fx_tracing.*")
 
 import torch
 import torch.nn as nn
@@ -135,13 +140,25 @@ def parse_config():
     parser.add_argument(
         "--use_amp", action="store_true", help="use mix precision training"
     )
+    parser.add_argument(
+        "--output_dir", type=str, default=None, help="override output directory"
+    )
 
     args = parser.parse_args()
     cfg_from_yaml_file(args.model_cfg, cfg) if args.model_cfg else {}
     cfg.TAG = Path(args.model_cfg).stem if args.model_cfg else ""
-    cfg.EXP_GROUP_PATH = (
-        "/".join(args.model_cfg.split("/")[1:-1]) if args.model_cfg else ""
-    )  # remove 'cfgs' and 'xxxx.yaml'
+    # Extract relative group path from model config (e.g. "autobaans_models" from ".../cfgs/autobaans_models/voxel_rcnn.yaml")
+    if args.model_cfg:
+        cfg_path = Path(args.model_cfg).resolve()
+        # Find "cfgs" in the path and take everything after it (minus the filename)
+        parts = cfg_path.parts
+        if "cfgs" in parts:
+            cfgs_idx = len(parts) - 1 - parts[::-1].index("cfgs")
+            cfg.EXP_GROUP_PATH = "/".join(parts[cfgs_idx + 1 : -1])
+        else:
+            cfg.EXP_GROUP_PATH = cfg_path.parent.name
+    else:
+        cfg.EXP_GROUP_PATH = ""
 
     args.use_amp = args.use_amp or cfg.OPTIMIZATION.get("USE_AMP", False)
 
@@ -163,108 +180,66 @@ def convert_for_yaml(obj):
     return obj
 
 
-def define_classes_ux(model_cfg, dataset_cfg, output_dir):
-    rank = (
-        torch.distributed.get_rank() if torch.distributed.is_initialized() else 0
-    )  # Get rank, default to 0 if not using distributed mode
+def define_classes(model_cfg, dataset_cfg, output_dir):
+    """Build class names and adjustments from dataset config (non-interactive).
 
-    # wait 3 seconds for the other processes to start
-    time.sleep(1)
-    print("")
-    # check if old config exists in output_dir/ckpt with structure "{dataset_cfg['dataset_name']}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.yaml"
+    The dataset config 'classes' field is a dict {data_class: model_class}.
+    Data classes not in the mapping are ignored during training.
+    If 'classes' is a list (legacy), it's treated as identity mapping.
+    """
+    dist_initialized = torch.distributed.is_initialized()
+    rank = torch.distributed.get_rank() if dist_initialized else 0
+
+    # Auto-load latest saved config if resuming
     ckpt_dir = output_dir / "ckpt"
     ckpt_files = glob.glob(str(ckpt_dir / f"{dataset_cfg['dataset_name']}*.yaml"))
     if len(ckpt_files) > 0:
         ckpt_files.sort(key=os.path.getmtime)
+        latest = ckpt_files[-1]
         if rank == 0:
-            res = input(
-                f"Found existing config files. Do you want to load the latest config? {os.path.basename(ckpt_files[-1])} (Y/n): "
-            )
-        else:
-            res = None
+            print(f"Resuming: loading saved config {os.path.basename(latest)}")
+        with open(latest, "r") as f:
+            conf = yaml.load(f, Loader=yaml.FullLoader)
+        model_cfg = merge_new_config(model_cfg, conf)
+        model_cfg["LOCAL_RANK"] = rank
+        return model_cfg
 
-        # Broadcast the user decision to all processes
-        res = [res]  # Wrap in list for broadcasting
-        torch.distributed.broadcast_object_list(res, src=0)
-        res = res[0]  # Unwrap
-
-        if res.lower() in ["y", ""]:
-            with open(ckpt_files[-1], "r") as f:
-                conf = yaml.load(f, Loader=yaml.FullLoader)
-            model_cfg = merge_new_config(
-                model_cfg, conf
-            )  # merge with pre-loaded config, since it includes the cfg base-parameters (TODO: check if model_cfg args is still just optional or if this fails)
-            model_cfg["LOCAL_RANK"] = rank
-            return model_cfg
     if "MODEL" not in model_cfg.keys():
         raise ValueError("MODEL key not found in model config")
 
+    # Build class mapping from config
     classes = dataset_cfg["classes"]
+    if isinstance(classes, list):
+        # Legacy list format → identity mapping
+        class_adjustments = {c: c for c in classes}
+    elif isinstance(classes, dict):
+        class_adjustments = dict(classes)
+    else:
+        raise ValueError(f"Unsupported classes format: {type(classes)}")
+
+    # Derive model classes (unique values, preserving order)
+    model_classes = []
+    for model_class in class_adjustments.values():
+        if model_class not in model_classes:
+            model_classes.append(model_class)
 
     if rank == 0:
-        print("Classes in the dataset: ", classes)
+        print(f"Data classes: {list(class_adjustments.keys())}")
+        print(f"Class adjustments: {class_adjustments}")
+        print(f"Model classes for training: {model_classes}")
 
-    if "CLASS_ADJUSTMENTS" in model_cfg.keys():
-        new_classes = []
-        class_adjustments = model_cfg["CLASS_ADJUSTMENTS"]
-        for c in class_adjustments.keys():
-            if c in classes and class_adjustments[c] not in new_classes:
-                new_classes.append(class_adjustments[c])
+    model_cfg["CLASS_ADJUSTMENTS"] = class_adjustments
+    model_cfg["CLASS_NAMES"] = model_classes
+    model_cfg.MODEL.DENSE_HEAD.CLASS_NAMES_EACH_HEAD = [model_classes]
 
-        if rank == 0:
-            print("Adjusted classes: ", new_classes)
-    else:
-        model_cfg["CLASS_ADJUSTMENTS"] = {c: c for c in classes}
-        new_classes = classes
+    # Broadcast to all processes in distributed mode
+    if dist_initialized:
+        model_cfg_list = [model_cfg]
+        torch.distributed.broadcast_object_list(model_cfg_list, src=0)
+        model_cfg = model_cfg_list[0]
 
+    # Save config snapshot (rank 0 only)
     if rank == 0:
-        res = input("Do you want to use the class names as they are? (Y/n): ")
-    else:
-        res = None
-
-    # Broadcast the user decision to all processes
-    res = [res]  # Wrap in list for broadcasting
-    torch.distributed.broadcast_object_list(res, src=0)
-    res = res[0]  # Unwrap
-
-    if res.lower() == "n" and rank == 0:
-        if rank == 0:
-            adjuster = {}
-            merged_classes = (
-                classes + new_classes
-            )  # Avoid in-place modification of classes
-            main_classes = input(
-                "Enter the main classes for training separated by commas: "
-            ).split(",")
-
-            print("\n".join(f"{i}: {c}" for i, c in enumerate(merged_classes)))
-
-            for c in main_classes:
-                batch = input(
-                    f"Enter the class indices to merge to {c} separated by commas: "
-                ).split(",")
-                for b in batch:
-                    adjuster[merged_classes[int(b)]] = c
-
-            model_cfg["CLASS_ADJUSTMENTS"] = adjuster
-            model_cfg["CLASS_NAMES"] = main_classes
-        else:
-            model_cfg["CLASS_ADJUSTMENTS"] = None
-            model_cfg["CLASS_NAMES"] = None
-    else:
-        if rank == 0:
-            model_cfg["CLASS_NAMES"] = new_classes if new_classes else classes
-
-    # Broadcast the finalized model_cfg from rank 0 to all other processes
-    model_cfg_list = [model_cfg]
-    torch.distributed.broadcast_object_list(model_cfg_list, src=0)
-    model_cfg = model_cfg_list[0]
-
-    # Apply the updated class names to the model config
-    model_cfg.MODEL.DENSE_HEAD.CLASS_NAMES_EACH_HEAD = [model_cfg["CLASS_NAMES"]]
-
-    if rank == 0:
-        # Save model config to checkpoint directory (only rank 0 writes)
         cfg_file = (
             output_dir
             / "ckpt"
@@ -289,11 +264,12 @@ def main():
         dataset_cfg["dataset_root"], dataset_cfg["dataset_name"]
     )
     cfg["CKPT_PATH"] = args.ckpt if args.ckpt is not None else ""
-    output_dir = (
-        # Path("/root/OpenPCDet/output") / cfg.EXP_GROUP_PATH / cfg.TAG / args.extra_tag
-        Path("/root/OpenPCDet/output") / "autobaans_models" / "voxel_rcnn" / "default"
-    )
+    if args.output_dir:
+        output_dir = Path(args.output_dir)
+    else:
+        output_dir = Path(cfg["DATA_PATH"]) / "output_3d" / args.extra_tag
 
+    output_dir.mkdir(parents=True, exist_ok=True)
     log_file = output_dir / (
         "train_%s.log" % datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     )
@@ -322,13 +298,29 @@ def main():
 
     args.epochs = cfg.OPTIMIZATION.NUM_EPOCHS if args.epochs is None else args.epochs
 
+    # Auto-scale learning rate for distributed training (linear scaling rule).
+    # When running on more GPUs than the config was tuned for, the effective
+    # batch size increases proportionally, so LR should scale to match.
+    BASE_GPUS = int(os.environ.get("BASE_GPUS", 2))
+    if total_gpus > BASE_GPUS and os.environ.get("TRAINING_MODE") == "gcp":
+        scale_factor = total_gpus / BASE_GPUS
+        original_lr = cfg.OPTIMIZATION.LR
+        cfg.OPTIMIZATION.LR = original_lr * scale_factor
+        # Add warmup for large-scale training to stabilize early iterations
+        if not hasattr(cfg.OPTIMIZATION, "WARMUP_EPOCH") or cfg.OPTIMIZATION.WARMUP_EPOCH < 0:
+            cfg.OPTIMIZATION.WARMUP_EPOCH = 1
+        logger.info(
+            f"Auto-scaled LR: {original_lr} -> {cfg.OPTIMIZATION.LR} "
+            f"(scale={scale_factor:.1f}x, {BASE_GPUS} -> {total_gpus} GPUs)"
+        )
+
     if args.fix_random_seed:
         common_utils.set_random_seed(666 + cfg.LOCAL_RANK)
     ckpt_dir = output_dir / "ckpt"
     output_dir.mkdir(parents=True, exist_ok=True)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
-    cfg = define_classes_ux(cfg, dataset_cfg, output_dir)
+    cfg = define_classes(cfg, dataset_cfg, output_dir)
 
     # log to file
     logger.info("**********************Start logging**********************")

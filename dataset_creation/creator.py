@@ -3,7 +3,7 @@ import os
 
 sys.path.append(os.path.abspath("."))  # Adds the project root to PYTHONPATH
 
-from dataset_creation.fetch_table import FetchTable
+from dataset_creation.fetch_api import ApiFetcher
 from dataset_creation.download_dataset import DatasetLoader
 import pickle
 
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     config = args.config
     skip_confirmation = args.yes
-    fetcher = FetchTable(config)
+    fetcher = ApiFetcher(config)
     # if there is a datatable.pkl file, load it
     datatable_path = f"dataset_creation/datatable_{fetcher.id_list_name}_{','.join([str(x) for x in fetcher.id_list])}.pkl"
     try:

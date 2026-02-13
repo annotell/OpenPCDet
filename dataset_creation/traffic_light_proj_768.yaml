@@ -1,0 +1,23 @@
+# Dataset config for 3D traffic light detection - Project 768
+# Classes: TrafficLightStructure, TrafficLightSpot
+#
+# Usage:
+#   1. Update 'classes' below with the correct name(s) from project 768
+#   2. Run: python dataset_creation/creator.py --config dataset_creation/traffic_light_proj_768.yaml
+#   3. This fetches from Kognic API and downloads to dataset_root/dataset_name
+
+projects: [768]
+requests: []  # if populated, projects will be ignored
+
+classes:
+  - TrafficLightStructure
+  - TrafficLightSpot
+
+dataset_root: '/mnt/bfd/datasets/autobaans/3dod'
+dataset_name: 'traffic_light_proj_768'
+max_workers: 8
+transform2LCS: False
+
+create_splits: False
+train_split: 0.98
+filter_pc: False
