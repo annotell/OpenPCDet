@@ -224,8 +224,10 @@ def init_dist_pytorch(tcp_port, local_rank, backend='nccl'):
         init_method='env://'
     )
 
-    rank = dist.get_rank()
-    return num_gpus, rank
+    # Return world_size (total GPUs across all nodes) and LOCAL rank.
+    # Caller uses first value for batch size scaling, second for cuda device.
+    total_gpus = dist.get_world_size()
+    return total_gpus, local_rank
 
 
 def get_dist_info(return_gpu_per_machine=False):
