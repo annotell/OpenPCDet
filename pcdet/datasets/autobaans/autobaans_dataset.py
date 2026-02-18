@@ -2,6 +2,7 @@ import copy
 import gc
 import os
 import pickle
+import time
 import traceback
 
 import numpy as np
@@ -145,9 +146,8 @@ class AutobaansDataset(DatasetTemplate):
         return annotations
 
     def __getitem__(self, index):
-        load_data = True
-        while load_data:
-            load_data = False
+        max_retries = 200
+        for attempt in range(max_retries):
             if self._merge_all_iters_to_one_epoch:
                 index = index % len(self.custom_infos)
 
@@ -162,9 +162,12 @@ class AutobaansDataset(DatasetTemplate):
             pointcloud = self.get_lidar(pc_path)
             get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])
             annotations = self.convert_annotations(anno_path)
-            if pointcloud is None or annotations is None:
+            if pointcloud is not None and annotations is not None:
+                break
+            # PC not downloaded yet — wait briefly then try another sample
+            if attempt < max_retries - 1:
+                time.sleep(0.5)
                 index = np.random.randint(0, len(self.custom_infos))
-                load_data = True
             gc.collect()
 
         input_dict = {"frame_id": index}
