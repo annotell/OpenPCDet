@@ -1,5 +1,6 @@
 import copy
 import gc
+import glob
 import os
 import pickle
 import time
@@ -55,6 +56,49 @@ class AutobaansDataset(DatasetTemplate):
                 self.custom_infos = pickle.load(f)
 
         self.sample_id_list = [i for i, _ in enumerate(self.custom_infos)]
+        self._anno_index = self._build_anno_index()
+
+    def _build_anno_index(self):
+        """Build lookup from base annotation ID to full file path.
+
+        Annotation files may have extra suffixes (sensor name, shape type)
+        beyond the base ID stored in train.pickle. E.g.:
+          train.pickle ID: "12967050_4000"
+          file on disk: "12967050_4000_None_Cube3D.pickle"
+        """
+        annos_dir = os.path.join(str(self.root_path), "annos")
+        if not os.path.isdir(annos_dir):
+            return {}
+        index = {}
+        for f in os.listdir(annos_dir):
+            if not f.endswith(".pickle"):
+                continue
+            # Extract base ID: first 2 underscore-separated parts
+            parts = f.replace(".pickle", "").split("_")
+            if len(parts) >= 2:
+                base_id = "_".join(parts[:2])
+                # Prefer shorter filenames (compat names) over longer ones
+                if base_id not in index or len(f) < len(os.path.basename(index[base_id])):
+                    index[base_id] = os.path.join(annos_dir, f)
+        print(f"[AutobaansDataset] Built annotation index: {len(index)} entries from {annos_dir}", flush=True)
+        return index
+
+    def _find_anno_path(self, anno_id):
+        """Find annotation file path for a given base annotation ID."""
+        # Fast path: use pre-built index
+        if anno_id in self._anno_index:
+            return self._anno_index[anno_id]
+        # Fallback: try exact match patterns
+        annos_dir = os.path.join(str(self.root_path), "annos")
+        for suffix in [".pickle", "_Cube3D.pickle"]:
+            path = os.path.join(annos_dir, anno_id + suffix)
+            if os.path.exists(path):
+                return path
+        # Last resort: glob
+        matches = glob.glob(os.path.join(annos_dir, anno_id + "*.pickle"))
+        if matches:
+            return matches[0]
+        return None
 
     def get_label(self, idx):
         label = self.custom_infos[idx][1]
@@ -157,13 +201,10 @@ class AutobaansDataset(DatasetTemplate):
             anno_id = self.custom_infos[index]
             pc_filename = anno_id + ".npy.npz"
             pc_path = os.path.join(str(self.root_path), "pcs", pc_filename)
-            # Try backward-compat name first, then type-specific
-            anno_path = os.path.join(str(self.root_path), "annos", anno_id + ".pickle")
-            if not os.path.exists(anno_path):
-                anno_path = os.path.join(str(self.root_path), "annos", anno_id + "_Cube3D.pickle")
+            anno_path = self._find_anno_path(anno_id)
 
             pointcloud = self.get_lidar(pc_path)
-            annotations = self.convert_annotations(anno_path)
+            annotations = self.convert_annotations(anno_path) if anno_path else None
 
             if pointcloud is not None and annotations is not None and "gt_boxes_lidar" in annotations:
                 break
