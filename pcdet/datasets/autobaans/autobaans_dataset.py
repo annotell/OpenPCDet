@@ -177,8 +177,7 @@ class AutobaansDataset(DatasetTemplate):
             self.lidars_loaded += 1
             # print("Lidars loaded:", self.lidars_loaded)
             return pointcloud
-        except Exception as e:
-            print("Error loading pointcloud from: ", pc_path, "ERR:", e, flush=True)
+        except Exception:
             return None
 
     def __len__(self):
@@ -228,7 +227,7 @@ class AutobaansDataset(DatasetTemplate):
         return annotations
 
     def __getitem__(self, index):
-        max_retries = 200
+        max_retries = 600
         get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])
         pointcloud = None
         annotations = None
