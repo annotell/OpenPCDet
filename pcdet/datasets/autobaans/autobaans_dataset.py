@@ -1,8 +1,10 @@
 import copy
 import gc
 import glob
+import io
 import os
 import pickle
+import sys
 import time
 import traceback
 
@@ -13,7 +15,20 @@ from ...ops.roiaware_pool3d import roiaware_pool3d_utils
 from ...utils import common_utils
 from ..dataset import DatasetTemplate
 from scipy.spatial.transform import Rotation
-import sys
+
+
+class _NumpyCompatUnpickler(pickle.Unpickler):
+    """Handle numpy internal module renames between versions.
+
+    Pickles created with numpy 2.x reference numpy._core.* but some
+    builds/versions use numpy.core.* instead. This unpickler redirects
+    missing numpy._core modules to numpy.core.
+    """
+
+    def find_class(self, module, name):
+        if module.startswith("numpy._core"):
+            module = module.replace("numpy._core", "numpy.core", 1)
+        return super().find_class(module, name)
 
 
 class AutobaansDataset(DatasetTemplate):
@@ -174,7 +189,7 @@ class AutobaansDataset(DatasetTemplate):
     def convert_annotations(self, path):
         try:
             with open(path, "rb") as f:
-                judgement = pickle.load(f)
+                judgement = _NumpyCompatUnpickler(f).load()
         except (EOFError, FileNotFoundError, Exception) as e:
             print(f"Error loading annotations from: {path} ERR: {e}", flush=True)
             return None
