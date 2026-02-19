@@ -63,8 +63,13 @@ def train_one_epoch(
         forward_time = common_utils.AverageMeter()
         losses_m = common_utils.AverageMeter()
 
+    if rank == 0:
+        print(f"[train] Starting epoch loop: total_it_each_epoch={total_it_each_epoch}, start_it={start_it}", flush=True)
+
     end = time.time()
     for cur_it in range(start_it, total_it_each_epoch):
+        if cur_it == start_it and rank == 0:
+            print(f"[train] Calling next(dataloader_iter) for first batch...", flush=True)
         try:
             batch = next(dataloader_iter)
         except StopIteration:

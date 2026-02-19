@@ -97,8 +97,7 @@ class AutobaansDataset(DatasetTemplate):
             # print("Lidars loaded:", self.lidars_loaded)
             return pointcloud
         except Exception as e:
-            print("Error loading pointcloud from: ", pc_path, "ERR:", e)
-            # print("Lidars loaded:", self.lidars_loaded)
+            print("Error loading pointcloud from: ", pc_path, "ERR:", e, flush=True)
             return None
 
     def __len__(self):
@@ -110,8 +109,8 @@ class AutobaansDataset(DatasetTemplate):
         try:
             with open(path, "rb") as f:
                 judgement = pickle.load(f)
-        except EOFError:
-            print("Error loading annotations from: ", path)
+        except (EOFError, FileNotFoundError, Exception) as e:
+            print(f"Error loading annotations from: {path} ERR: {e}", flush=True)
             return None
         annotations = {"name": [], "dimensions": [], "location": [], "rotation_y": []}
 
@@ -147,6 +146,10 @@ class AutobaansDataset(DatasetTemplate):
 
     def __getitem__(self, index):
         max_retries = 200
+        get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])
+        pointcloud = None
+        annotations = None
+
         for attempt in range(max_retries):
             if self._merge_all_iters_to_one_epoch:
                 index = index % len(self.custom_infos)
@@ -160,15 +163,28 @@ class AutobaansDataset(DatasetTemplate):
                 anno_path = os.path.join(str(self.root_path), "annos", anno_id + "_Cube3D.pickle")
 
             pointcloud = self.get_lidar(pc_path)
-            get_item_list = self.dataset_cfg.get("GET_ITEM_LIST", ["points"])
             annotations = self.convert_annotations(anno_path)
-            if pointcloud is not None and annotations is not None:
+
+            if pointcloud is not None and annotations is not None and "gt_boxes_lidar" in annotations:
                 break
-            # PC not downloaded yet — wait briefly then try another sample
+            # PC not downloaded yet or annotation empty — wait briefly then try another sample
             if attempt < max_retries - 1:
+                if attempt % 50 == 0:
+                    pc_dir = os.path.join(str(self.root_path), "pcs")
+                    n_pcs = len(os.listdir(pc_dir)) if os.path.isdir(pc_dir) else 0
+                    print(f"[getitem] attempt={attempt}, index={index}, pc={pointcloud is not None}, "
+                          f"anno={annotations is not None}, "
+                          f"has_boxes={'gt_boxes_lidar' in annotations if annotations else 'N/A'}, "
+                          f"pcs_on_disk={n_pcs}", flush=True)
                 time.sleep(0.5)
                 index = np.random.randint(0, len(self.custom_infos))
             gc.collect()
+
+        if pointcloud is None or annotations is None or "gt_boxes_lidar" not in annotations:
+            print(f"[getitem] FAILED after {max_retries} retries. "
+                  f"pc={pointcloud is not None}, anno={annotations is not None}, "
+                  f"has_boxes={'gt_boxes_lidar' in annotations if annotations else 'N/A'}", flush=True)
+            raise RuntimeError(f"Could not load sample after {max_retries} retries")
 
         input_dict = {"frame_id": index}
         if "points" in get_item_list:
