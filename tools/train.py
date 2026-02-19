@@ -301,9 +301,11 @@ def main():
     # Auto-scale learning rate for distributed training (linear scaling rule).
     # When running on more GPUs than the config was tuned for, the effective
     # batch size increases proportionally, so LR should scale to match.
+    # Use world_size (all GPUs across nodes) not total_gpus (local GPUs per node).
+    world_size = torch.distributed.get_world_size() if dist_train else total_gpus
     BASE_GPUS = int(os.environ.get("BASE_GPUS", 2))
-    if total_gpus > BASE_GPUS and os.environ.get("TRAINING_MODE") == "gcp":
-        scale_factor = total_gpus / BASE_GPUS
+    if world_size > BASE_GPUS and os.environ.get("TRAINING_MODE") == "gcp":
+        scale_factor = world_size / BASE_GPUS
         original_lr = cfg.OPTIMIZATION.LR
         cfg.OPTIMIZATION.LR = original_lr * scale_factor
         # Add warmup for large-scale training to stabilize early iterations
@@ -311,7 +313,7 @@ def main():
             cfg.OPTIMIZATION.WARMUP_EPOCH = 1
         logger.info(
             f"Auto-scaled LR: {original_lr} -> {cfg.OPTIMIZATION.LR} "
-            f"(scale={scale_factor:.1f}x, {BASE_GPUS} -> {total_gpus} GPUs)"
+            f"(scale={scale_factor:.1f}x, {BASE_GPUS} -> {world_size} GPUs)"
         )
 
     if args.fix_random_seed:
@@ -335,7 +337,7 @@ def main():
     if dist_train:
         logger.info(
             "Training in distributed mode : total_batch_size: %d"
-            % (total_gpus * args.batch_size)
+            % (world_size * args.batch_size)
         )
     else:
         logger.info("Training with a single process")
