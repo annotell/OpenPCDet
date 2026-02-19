@@ -137,6 +137,20 @@ class AutobaansDataset(DatasetTemplate):
             return matches[0]
         return None
 
+    def _find_pc_path(self, anno_id):
+        """Find point cloud file for a given annotation ID.
+
+        The downloader saves PCs as {id}_{sensor}.npy.npz where sensor
+        is 'None' for single-lidar or a sensor ID for multi-lidar.
+        """
+        pcs_dir = os.path.join(str(self.root_path), "pcs")
+        # Try common patterns in order of likelihood
+        for suffix in ["_None.npy.npz", ".npy.npz", "_0.npy.npz"]:
+            path = os.path.join(pcs_dir, anno_id + suffix)
+            if os.path.exists(path):
+                return path
+        return None
+
     def get_label(self, idx):
         label = self.custom_infos[idx][1]
         # [N, 8]: (x y z dx dy dz heading_angle category_id)
@@ -237,11 +251,10 @@ class AutobaansDataset(DatasetTemplate):
                 index = index % len(self.custom_infos)
 
             anno_id = self.custom_infos[index]
-            pc_filename = anno_id + ".npy.npz"
-            pc_path = os.path.join(str(self.root_path), "pcs", pc_filename)
+            pc_path = self._find_pc_path(anno_id)
             anno_path = self._find_anno_path(anno_id)
 
-            pointcloud = self.get_lidar(pc_path)
+            pointcloud = self.get_lidar(pc_path) if pc_path else None
             annotations = self.convert_annotations(anno_path) if anno_path else None
 
             if pointcloud is not None and annotations is not None and "gt_boxes_lidar" in annotations:
