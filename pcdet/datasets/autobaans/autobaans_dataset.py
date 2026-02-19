@@ -55,8 +55,24 @@ class AutobaansDataset(DatasetTemplate):
             with open(os.path.join(str(self.root_path), "val.pickle"), "rb") as f:
                 self.custom_infos = pickle.load(f)
 
-        self.sample_id_list = [i for i, _ in enumerate(self.custom_infos)]
         self._anno_index = self._build_anno_index()
+
+        # Filter out samples that only have non-3D annotations (e.g. ExtremePointBox)
+        original_count = len(self.custom_infos)
+        if self._anno_index:
+            self.custom_infos = [
+                anno_id for anno_id in self.custom_infos
+                if anno_id in self._anno_index
+                and "ExtremePointBox" not in os.path.basename(self._anno_index[anno_id])
+            ]
+            if len(self.custom_infos) < original_count:
+                print(
+                    f"[AutobaansDataset] Filtered to 3D annotations: "
+                    f"{len(self.custom_infos)}/{original_count} samples",
+                    flush=True,
+                )
+
+        self.sample_id_list = [i for i, _ in enumerate(self.custom_infos)]
 
     def _build_anno_index(self):
         """Build lookup from base annotation ID to full file path.
