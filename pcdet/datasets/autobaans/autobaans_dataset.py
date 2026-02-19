@@ -65,6 +65,9 @@ class AutobaansDataset(DatasetTemplate):
         beyond the base ID stored in train.pickle. E.g.:
           train.pickle ID: "12967050_4000"
           file on disk: "12967050_4000_None_Cube3D.pickle"
+
+        Prefer Cube3D-specific files since they contain the 3D box annotations
+        needed for training. Generic/compat files may only have 2D annotations.
         """
         annos_dir = os.path.join(str(self.root_path), "annos")
         if not os.path.isdir(annos_dir):
@@ -77,8 +80,11 @@ class AutobaansDataset(DatasetTemplate):
             parts = f.replace(".pickle", "").split("_")
             if len(parts) >= 2:
                 base_id = "_".join(parts[:2])
-                # Prefer shorter filenames (compat names) over longer ones
-                if base_id not in index or len(f) < len(os.path.basename(index[base_id])):
+                is_cube3d = "Cube3D" in f
+                existing = index.get(base_id)
+                existing_is_cube3d = "Cube3D" in os.path.basename(existing) if existing else False
+                # Prefer Cube3D-specific files for 3D training
+                if existing is None or (is_cube3d and not existing_is_cube3d):
                     index[base_id] = os.path.join(annos_dir, f)
         print(f"[AutobaansDataset] Built annotation index: {len(index)} entries from {annos_dir}", flush=True)
         return index
