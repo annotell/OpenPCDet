@@ -161,7 +161,9 @@ class AutobaansDataset(DatasetTemplate):
         for i in range(0, len(judgement)):
             curr_obj = judgement[i]
             if curr_obj["class"] not in self.dataset_cfg["CLASS_ADJUSTMENTS"]:
-                print("!!! Class name not found in class adjustment: ", curr_obj["class"])
+                continue
+            # Skip non-box annotations (e.g. ExtremePointBox) that lack 3D box keys
+            if not all(k in curr_obj for k in ("coordinates", "scale", "rotation")):
                 continue
             obj_class = self.dataset_cfg["CLASS_ADJUSTMENTS"][curr_obj["class"]]
             coordinates = curr_obj["coordinates"]
