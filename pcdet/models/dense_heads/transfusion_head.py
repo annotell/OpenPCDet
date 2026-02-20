@@ -566,7 +566,7 @@ class TransFusionHead(nn.Module):
             center[:, 1, :] * self.feature_map_stride * self.voxel_size[1]
             + self.point_cloud_range[1]
         )
-        dim = dim.exp()
+        dim = torch.exp(torch.clamp(dim, min=-5, max=5))
         rots, rotc = rot[:, 0:1, :], rot[:, 1:2, :]
         rot = torch.atan2(rots, rotc)
 

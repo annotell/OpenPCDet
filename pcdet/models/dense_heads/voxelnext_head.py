@@ -333,7 +333,7 @@ class VoxelNeXtHead(nn.Module):
     def merge_double_flip(self, pred_dict, batch_size, voxel_indices, spatial_shape):
         # spatial_shape (Z, Y, X)
         pred_dict['hm'] = pred_dict['hm'].sigmoid()
-        pred_dict['dim'] = pred_dict['dim'].exp()
+        pred_dict['dim'] = torch.exp(torch.clamp(pred_dict['dim'], min=-5, max=5))
 
         batch_indices = voxel_indices[:, 0]
         spatial_indices = voxel_indices[:, 1:]
@@ -433,7 +433,7 @@ class VoxelNeXtHead(nn.Module):
                 batch_hm = pred_dict['hm'].sigmoid()
                 batch_center = pred_dict['center']
                 batch_center_z = pred_dict['center_z']
-                batch_dim = pred_dict['dim'].exp()
+                batch_dim = torch.exp(torch.clamp(pred_dict['dim'], min=-5, max=5))
                 batch_rot_cos = pred_dict['rot'][:, 0].unsqueeze(dim=1)
                 batch_rot_sin = pred_dict['rot'][:, 1].unsqueeze(dim=1)
                 batch_iou = (pred_dict['iou'] + 1) * 0.5 if self.iou_branch else None
