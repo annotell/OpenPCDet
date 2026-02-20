@@ -273,7 +273,10 @@ class VoxelResBackBone8x(nn.Module):
                 _, C, D, H, W = dense.shape
                 bev_features = C * D
                 print(f"VoxelResBackBone8x: probed output C={C}, D={D}, H={H}, W={W} -> BEV features={bev_features}")
+            # Free GPU memory from probe before training starts
+            del dense, out, x
             self.to('cpu')
+            torch.cuda.empty_cache()
             self.train(was_training)
             return bev_features
         except Exception as e:
