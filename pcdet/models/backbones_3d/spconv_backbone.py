@@ -247,14 +247,16 @@ class VoxelResBackBone8x(nn.Module):
         self.output_bev_features = self._probe_output_shape(input_channels)
 
     def _probe_output_shape(self, input_channels):
-        """Determine actual output C*D by running a single-voxel forward pass."""
-        # Try dummy forward pass first (captures actual spconv behavior)
+        """Determine actual output C*D by running a single-voxel forward pass on CUDA."""
+        # spconv requires CUDA for convolutions, so move to GPU temporarily
         try:
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             was_training = self.training
+            self.to(device)
             self.eval()
             with torch.no_grad():
-                dummy_feats = torch.zeros(1, input_channels)
-                dummy_coords = torch.zeros(1, 4, dtype=torch.int32)
+                dummy_feats = torch.zeros(1, input_channels, device=device)
+                dummy_coords = torch.zeros(1, 4, dtype=torch.int32, device=device)
                 dummy_sp = spconv.SparseConvTensor(
                     features=dummy_feats,
                     indices=dummy_coords,
@@ -271,10 +273,15 @@ class VoxelResBackBone8x(nn.Module):
                 _, C, D, H, W = dense.shape
                 bev_features = C * D
                 print(f"VoxelResBackBone8x: probed output C={C}, D={D}, H={H}, W={W} -> BEV features={bev_features}")
+            self.to('cpu')
             self.train(was_training)
             return bev_features
         except Exception as e:
             print(f"Warning: BEV forward probe failed ({e}), trying attribute-based computation")
+            try:
+                self.to('cpu')
+            except Exception:
+                pass
             if not self.training:
                 self.train(True)
 
