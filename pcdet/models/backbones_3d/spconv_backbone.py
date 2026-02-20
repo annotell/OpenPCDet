@@ -1,5 +1,6 @@
 from functools import partial
 
+import torch
 import torch.nn as nn
 
 from ...utils.spconv_utils import replace_feature, spconv
@@ -240,6 +241,43 @@ class VoxelResBackBone8x(nn.Module):
             'x_conv4': 128
         }
 
+        # Probe the actual output BEV features (C * z_dim) via single-voxel forward.
+        # Different spconv versions compute output spatial shapes differently,
+        # so we determine the actual value instead of assuming from config.
+        self.output_bev_features = self._probe_output_shape(input_channels)
+
+    def _probe_output_shape(self, input_channels):
+        """Determine actual output C*D by running a single-voxel forward pass."""
+        try:
+            was_training = self.training
+            self.eval()
+            with torch.no_grad():
+                dummy_feats = torch.zeros(1, input_channels)
+                dummy_coords = torch.zeros(1, 4, dtype=torch.int32)
+                dummy_sp = spconv.SparseConvTensor(
+                    features=dummy_feats,
+                    indices=dummy_coords,
+                    spatial_shape=self.sparse_shape,
+                    batch_size=1
+                )
+                x = self.conv_input(dummy_sp)
+                x = self.conv1(x)
+                x = self.conv2(x)
+                x = self.conv3(x)
+                x = self.conv4(x)
+                out = self.conv_out(x)
+                dense = out.dense()
+                _, C, D, H, W = dense.shape
+                bev_features = C * D
+                print(f"VoxelResBackBone8x: probed output C={C}, D={D}, H={H}, W={W} -> BEV features={bev_features}")
+            self.train(was_training)
+            return bev_features
+        except Exception as e:
+            print(f"Warning: BEV probe failed ({e}), falling back to {self.num_point_features * 2}")
+            if not self.training:
+                self.train(True)
+            return self.num_point_features * 2
+
     def forward(self, batch_dict):
         """
         Args:
@@ -291,5 +329,5 @@ class VoxelResBackBone8x(nn.Module):
                 'x_conv4': 8,
             }
         })
-        
+
         return batch_dict

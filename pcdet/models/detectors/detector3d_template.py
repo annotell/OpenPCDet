@@ -98,6 +98,8 @@ class Detector3DTemplate(nn.Module):
             if hasattr(backbone_3d_module, "backbone_channels")
             else None
         )
+        if hasattr(backbone_3d_module, "output_bev_features"):
+            model_info_dict["computed_bev_features"] = backbone_3d_module.output_bev_features
         return backbone_3d_module, model_info_dict
 
     def build_map_to_bev_module(self, model_info_dict):
@@ -107,6 +109,15 @@ class Detector3DTemplate(nn.Module):
         map_to_bev_module = map_to_bev.__all__[self.model_cfg.MAP_TO_BEV.NAME](
             model_cfg=self.model_cfg.MAP_TO_BEV, grid_size=model_info_dict["grid_size"]
         )
+        # Override NUM_BEV_FEATURES with the actual value probed from the backbone
+        if "computed_bev_features" in model_info_dict:
+            computed = model_info_dict["computed_bev_features"]
+            if computed != map_to_bev_module.num_bev_features:
+                print(
+                    f"HeightCompression: overriding NUM_BEV_FEATURES "
+                    f"{map_to_bev_module.num_bev_features} -> {computed} (probed from backbone)"
+                )
+                map_to_bev_module.num_bev_features = computed
         model_info_dict["module_list"].append(map_to_bev_module)
         model_info_dict["num_bev_features"] = map_to_bev_module.num_bev_features
         return map_to_bev_module, model_info_dict
