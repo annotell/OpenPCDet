@@ -248,6 +248,7 @@ class VoxelResBackBone8x(nn.Module):
 
     def _probe_output_shape(self, input_channels):
         """Determine actual output C*D by running a single-voxel forward pass."""
+        # Try dummy forward pass first (captures actual spconv behavior)
         try:
             was_training = self.training
             self.eval()
@@ -273,9 +274,30 @@ class VoxelResBackBone8x(nn.Module):
             self.train(was_training)
             return bev_features
         except Exception as e:
-            print(f"Warning: BEV probe failed ({e}), falling back to {self.num_point_features * 2}")
+            print(f"Warning: BEV forward probe failed ({e}), trying attribute-based computation")
             if not self.training:
                 self.train(True)
+
+        # Fallback: compute spatial shape from layer attributes
+        try:
+            spatial = [int(s) for s in self.sparse_shape]  # [z, y, x]
+            out_channels = input_channels
+            for name, module in self.named_modules():
+                if hasattr(module, 'kernel_size') and hasattr(module, 'stride') and hasattr(module, 'out_channels'):
+                    if hasattr(module, 'indice_key') and module.stride is not None:
+                        ks = module.kernel_size if hasattr(module.kernel_size, '__len__') else [module.kernel_size] * 3
+                        st = module.stride if hasattr(module.stride, '__len__') else [module.stride] * 3
+                        pa = module.padding if hasattr(module.padding, '__len__') else [module.padding] * 3
+                        di = module.dilation if hasattr(module.dilation, '__len__') else [module.dilation] * 3
+                        if any(s > 1 for s in st):  # Only strided convs change spatial shape
+                            for i in range(3):
+                                spatial[i] = (spatial[i] + 2 * int(pa[i]) - int(di[i]) * (int(ks[i]) - 1) - 1) // int(st[i]) + 1
+                            out_channels = module.out_channels
+            bev_features = out_channels * spatial[0]
+            print(f"VoxelResBackBone8x: computed output z={spatial[0]}, C={out_channels} -> BEV features={bev_features}")
+            return bev_features
+        except Exception as e2:
+            print(f"Warning: BEV computation also failed ({e2}), using fallback {self.num_point_features * 2}")
             return self.num_point_features * 2
 
     def forward(self, batch_dict):
