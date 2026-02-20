@@ -435,8 +435,7 @@ def decode_bbox_from_pred_dicts(
         .view(batch_size, H * W, 1)
     )  # (B, H, W, 1)
     batch_dim = (
-        pred_dict["dim"]
-        .exp()
+        torch.exp(torch.clamp(pred_dict["dim"], min=-5, max=5))
         .permute(0, 2, 3, 1)
         .contiguous()
         .view(batch_size, H * W, 3)

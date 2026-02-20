@@ -446,7 +446,7 @@ class CenterHead(nn.Module):
             batch_hm = pred_dict["hm"].sigmoid()
             batch_center = pred_dict["center"]
             batch_center_z = pred_dict["center_z"]
-            batch_dim = pred_dict["dim"].exp()
+            batch_dim = torch.exp(torch.clamp(pred_dict["dim"], min=-5, max=5))
             batch_rot_cos = pred_dict["rot"][:, 0].unsqueeze(dim=1)
             batch_rot_sin = pred_dict["rot"][:, 1].unsqueeze(dim=1)
             batch_vel = (
