@@ -14,3 +14,4 @@ venv/
 *.bin
 version.py
 *.deb
+!.github/**
