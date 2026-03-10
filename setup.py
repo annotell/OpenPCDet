@@ -38,6 +38,10 @@ if __name__ == '__main__':
         python_requires='>=3.6,<3.15',
         install_requires=[
             'numpy>=1.26.2,<2.0',
+            'torch',
+            'kognic-torch-scatter',
+            'spconv-cu124',
+            'pyquaternion',
             'llvmlite',
             'numba',
             'tensorboardX',
@@ -46,7 +50,6 @@ if __name__ == '__main__':
             'scikit-image',
             'tqdm>4.29.0',
             'SharedArray',
-            # 'spconv',  # spconv has different names depending on the cuda version
         ],
 
         author='Shaoshuai Shi',
