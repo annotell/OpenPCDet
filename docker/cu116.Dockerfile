@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.6.2-devel-ubuntu20.04
+FROM nvidia/cuda:11.6.2-devel-ubuntu20.04@sha256:bf4c3628625d7d14e1a37a99fb57a91382fc3dcf9875665479ee177d59e93438
 
 # Set environment variables
 ENV NVENCODE_CFLAGS "-I/usr/local/cuda/include"
